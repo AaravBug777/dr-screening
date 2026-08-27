@@ -1,0 +1,831 @@
+{
+  "model": "EfficientNet-B3, 5-epoch checkpoint",
+  "referable_temperature": 0.9,
+  "referable_threshold": 0.3,
+  "predictions": [
+    {
+      "image": "IDRiD_001",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.978607177734375,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_002",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.7612859010696411,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_003",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.8208320736885071,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_004",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9713081121444702,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_005",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9998781085014343,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_006",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.8775084018707275,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_007",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9549129605293274,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_008",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9796531796455383,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_009",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9166069030761719,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_010",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9525697231292725,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_011",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.8724642395973206,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_012",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 1,
+      "referable_probability": 0.21681174635887146,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_013",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 3,
+      "referable_probability": 0.9850327968597412,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_014",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9337098002433777,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_015",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 3,
+      "referable_probability": 0.9532797336578369,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_016",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 3,
+      "referable_probability": 0.9932774305343628,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_017",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 3,
+      "referable_probability": 0.9587387442588806,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_018",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9826887845993042,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_019",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.8467702269554138,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_020",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.8958353400230408,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_021",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9319036602973938,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_022",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 3,
+      "referable_probability": 0.9873563647270203,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_023",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9765804409980774,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_024",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.6981399059295654,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_025",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9869264960289001,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_026",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9853177070617676,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_027",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.8243484497070312,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_028",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9284482598304749,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_029",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.08635801076889038,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_030",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.11535408347845078,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_031",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9097936153411865,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_032",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9849165678024292,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_033",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9581902027130127,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_034",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9472616314888,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_035",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 3,
+      "referable_probability": 0.9904760718345642,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_036",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.8665721416473389,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_037",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.014176060445606709,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_038",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 2,
+      "referable_probability": 0.6174889802932739,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_039",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.15766620635986328,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_040",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9241724014282227,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_041",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.01677653007209301,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_042",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9909188151359558,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_043",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.2175825536251068,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_044",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.029074786230921745,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_045",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 2,
+      "referable_probability": 0.7405296564102173,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_046",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 1,
+      "referable_probability": 0.31513357162475586,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_047",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.2676055133342743,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_048",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9862072467803955,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_049",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.8970359563827515,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_050",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.26635289192199707,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_051",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9308925271034241,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_052",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 2,
+      "referable_probability": 0.5705778002738953,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_053",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9985838532447815,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_054",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.0749364048242569,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_055",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.024790698662400246,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_056",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 2,
+      "referable_probability": 0.6249971389770508,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_057",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9656437635421753,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_058",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.007806536741554737,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_059",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9673417806625366,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_060",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 0,
+      "referable_probability": 0.03990606591105461,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_061",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9897023439407349,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_062",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9995517134666443,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_063",
+      "true_grade": 1,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.002171570435166359,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_064",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 1,
+      "referable_probability": 0.33628666400909424,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_065",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 1,
+      "referable_probability": 0.4227446913719177,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_066",
+      "true_grade": 3,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9640622138977051,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_067",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9180827140808105,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_068",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 2,
+      "referable_probability": 0.478989839553833,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_069",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.32821810245513916,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_070",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.07005234062671661,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_071",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.007836568169295788,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_072",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 3,
+      "referable_probability": 0.9814082384109497,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_073",
+      "true_grade": 1,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.1570155918598175,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_074",
+      "true_grade": 1,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.08493312448263168,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_075",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.00893370620906353,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_076",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 0,
+      "referable_probability": 0.009101537056267262,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_077",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.05976943299174309,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_078",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.25853490829467773,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_079",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 1,
+      "referable_probability": 0.049648188054561615,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_080",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.021102705970406532,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_081",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 1,
+      "referable_probability": 0.44703179597854614,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_082",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 1,
+      "referable_probability": 0.3653872311115265,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_083",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.5891380310058594,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_084",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 1,
+      "referable_probability": 0.1762756109237671,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_085",
+      "true_grade": 1,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.3820933401584625,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_086",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.5126008987426758,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_087",
+      "true_grade": 4,
+      "true_referable": true,
+      "predicted_class": 4,
+      "referable_probability": 0.9636589288711548,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_088",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 3,
+      "referable_probability": 0.9879764318466187,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_089",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 3,
+      "referable_probability": 0.9678755402565002,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_090",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.018484357744455338,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_091",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.9417240023612976,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_092",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.00536956125870347,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_093",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.29731565713882446,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_094",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.24664103984832764,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_095",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.016976606100797653,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_096",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.040839456021785736,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_097",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 0,
+      "referable_probability": 0.40396636724472046,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_098",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 4,
+      "referable_probability": 0.9521961808204651,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_099",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.26234573125839233,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_100",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 1,
+      "referable_probability": 0.18682782351970673,
+      "referable_predicted": false
+    },
+    {
+      "image": "IDRiD_101",
+      "true_grade": 1,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.39698103070259094,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_102",
+      "true_grade": 2,
+      "true_referable": true,
+      "predicted_class": 2,
+      "referable_probability": 0.8436881303787231,
+      "referable_predicted": true
+    },
+    {
+      "image": "IDRiD_103",
+      "true_grade": 0,
+      "true_referable": false,
+      "predicted_class": 1,
+      "referable_probability": 0.021435627713799477,
+      "referable_predicted": false
+    }
+  ]
+}

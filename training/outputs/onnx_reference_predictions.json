@@ -1,0 +1,128 @@
+{
+  "img_size": 380,
+  "normalize_mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "normalize_std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "class_names": [
+    "No DR",
+    "Mild",
+    "Moderate",
+    "Severe",
+    "Proliferative DR"
+  ],
+  "note": "Reference predictions computed from BOTH the original PyTorch checkpoint and the exported ONNX model (they agreed to within the pytorch_onnx_max_abs_diff logit tolerance shown per-image). matlab/tests/validateONNXAgainstPython.m compares MATLAB's own ONNX-imported inference against these -- a three-way cross-check (PyTorch vs ONNX Runtime vs MATLAB Deep Learning Toolbox), not just a two-way one.",
+  "references": [
+    {
+      "image": "data/idrid/B. Disease Grading/1. Original Images/a. Training Set/IDRiD_001.jpg",
+      "fixture_image": "onnx_reference_fixtures/IDRiD_001_preprocessed.png",
+      "predicted_class": 3,
+      "predicted_label": "Severe",
+      "probabilities": [
+        0.001090681180357933,
+        0.007062153425067663,
+        0.24612464010715485,
+        0.6129277944564819,
+        0.13279467821121216
+      ],
+      "logits": [
+        -2.9015979766845703,
+        -1.0336501598358154,
+        2.5174379348754883,
+        3.429847002029419,
+        1.9004040956497192
+      ],
+      "pytorch_onnx_max_abs_diff": 2.86102294921875e-06
+    },
+    {
+      "image": "data/idrid/B. Disease Grading/1. Original Images/a. Training Set/IDRiD_003.jpg",
+      "fixture_image": "onnx_reference_fixtures/IDRiD_003_preprocessed.png",
+      "predicted_class": 2,
+      "predicted_label": "Moderate",
+      "probabilities": [
+        0.030339708551764488,
+        0.254915326833725,
+        0.37735337018966675,
+        0.0945359319448471,
+        0.24285557866096497
+      ],
+      "logits": [
+        -0.7603542804718018,
+        1.3681198358535767,
+        1.7603704929351807,
+        0.37616851925849915,
+        1.319655418395996
+      ],
+      "pytorch_onnx_max_abs_diff": 4.9173831939697266e-06
+    },
+    {
+      "image": "data/idrid/B. Disease Grading/1. Original Images/a. Training Set/IDRiD_010.jpg",
+      "fixture_image": "onnx_reference_fixtures/IDRiD_010_preprocessed.png",
+      "predicted_class": 4,
+      "predicted_label": "Proliferative DR",
+      "probabilities": [
+        0.0021599060855805874,
+        0.0036088754422962666,
+        0.05635334551334381,
+        0.2469312995672226,
+        0.6909465789794922
+      ],
+      "logits": [
+        -2.36523699760437,
+        -1.851905107498169,
+        0.8963401317596436,
+        2.3738086223602295,
+        3.4027609825134277
+      ],
+      "pytorch_onnx_max_abs_diff": 9.5367431640625e-07
+    },
+    {
+      "image": "data/idrid/B. Disease Grading/1. Original Images/a. Training Set/IDRiD_016.jpg",
+      "fixture_image": "onnx_reference_fixtures/IDRiD_016_preprocessed.png",
+      "predicted_class": 3,
+      "predicted_label": "Severe",
+      "probabilities": [
+        0.01292345579713583,
+        0.03474394604563713,
+        0.3273250460624695,
+        0.43323758244514465,
+        0.19176995754241943
+      ],
+      "logits": [
+        -1.4095958471298218,
+        -0.42063456773757935,
+        1.8223137855529785,
+        2.1026463508605957,
+        1.287656545639038
+      ],
+      "pytorch_onnx_max_abs_diff": 2.86102294921875e-06
+    },
+    {
+      "image": "data/idrid/B. Disease Grading/1. Original Images/a. Training Set/IDRiD_025.jpg",
+      "fixture_image": "onnx_reference_fixtures/IDRiD_025_preprocessed.png",
+      "predicted_class": 2,
+      "predicted_label": "Moderate",
+      "probabilities": [
+        0.025739597156643867,
+        0.2024603933095932,
+        0.4763585925102234,
+        0.06835177540779114,
+        0.22708959877490997
+      ],
+      "logits": [
+        -0.7074692249298096,
+        1.3550446033477783,
+        2.2106711864471436,
+        0.2691677510738373,
+        1.469844937324524
+      ],
+      "pytorch_onnx_max_abs_diff": 1.6689300537109375e-06
+    }
+  ]
+}

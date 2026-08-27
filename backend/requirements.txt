@@ -1,0 +1,22 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.9
+opencv-python-headless>=4.8.0
+torch>=2.1.0
+timm>=0.9.12
+albumentations>=1.3.1
+pandas>=2.0.0
+scikit-learn>=1.3.0
+numpy>=1.24.0
+reportlab>=4.0.0  # /report's automated annotated PDF export -- see report_generator.py
+
+# MATLAB Engine API for Python -- NOT installable via this file (not a
+# normal PyPI package; installs from a local MATLAB installation and the
+# exact source depends on your MATLAB version/platform). See
+# matlab/README.md's "Python backend integration" section for the install
+# steps actually used for this project (including a Windows permissions
+# workaround). Required for matlab_bridge.py / the quality-gate +
+# segmentation features in main.py's /predict -- the app still runs and
+# grades without it, just without those two features (matlab_bridge.py
+# raises ImportError, which isn't caught -- see that section for the
+# current status of that gap).

@@ -8,8 +8,17 @@
 % integration step itself:
 %
 %   (A) DL-alone         -- the production Python EfficientNet-B3 grader's
-%                            calibrated referable decision (temperature
-%                            scaling + tuned threshold)
+%                            CURRENT deployed decision: 6-view test-time
+%                            augmentation (training/tta.py), matching
+%                            backend/main.py's live /predict path exactly
+%                            (temperature+threshold from
+%                            config.TTA_REFERABLE_TEMPERATURE/THRESHOLD).
+%                            FIXED A REAL STALENESS BUG this session: this
+%                            used to compare against the OLDER, superseded
+%                            single-view calibration -- a system that
+%                            isn't actually deployed -- see
+%                            training/predict_idrid_test_referable.py's
+%                            docstring.
 %   (B) MATLAB-alone      -- the structural-features classifier
 %                            (trainStructuralReferableNet.m), using ONLY
 %                            the 14 classical MATLAB segmentation-module +
@@ -19,18 +28,28 @@
 %                            referable probabilities, thresholded at 0.5
 %   (D) Integrated, fit    -- logistic regression combiner (Statistics and
 %                            Machine Learning Toolbox's fitglm) of (A) and
-%                            (B)'s probabilities, FIT on a separate
-%                            200-image IDRiD train subsample and reported
-%                            here ONLY on the untouched test split
+%                            (B)'s probabilities, FIT on a calibration set
+%                            of ~2,150 images (the full 413-image official
+%                            IDRiD train split + 1,744 real, adjudicated-
+%                            label Messidor-2 images -- previously just a
+%                            200-image IDRiD subsample) and reported here
+%                            ONLY on the untouched test split
 %
 % (A)/(B)/(C)/(D) are all evaluated on the SAME held-out population: the
 % full official IDRiD Disease Grading test set (n=103), never used for
 % training the DL model, tuning its threshold/temperature, training the
-% structural-features net, OR fitting the (D) combiner.
+% structural-features net, OR fitting the (D) combiner. Messidor-2 images
+% used for calibration here DO overlap with images used to calibrate
+% TTA_REFERABLE_TEMPERATURE/THRESHOLD itself (see training/
+% calibrate_tta_threshold.py) -- that's a separate, earlier modeling
+% stage, not a violation of the held-out-test firewall that actually
+% matters (the IDRiD test set, which nothing here ever touches).
 %
 % Run first: training/predict_idrid_test_referable.py --split test,
-% training/predict_idrid_test_referable.py --split train --restrict-to ...,
-% tests/extractStructuralFeatures.m (both splits), grading/trainStructuralReferableNet.m.
+% training/predict_idrid_test_referable.py --split train,
+% training/build_messidor2_calibration_probs.py,
+% tests/extractStructuralFeatures.m (both splits),
+% tests/extractMessidor2CalibrationFeatures.m, grading/trainStructuralReferableNet.m.
 
 setupPathsRoot = fileparts(mfilename('fullpath'));
 run(fullfile(setupPathsRoot, '..', 'setupPaths.m'));
@@ -38,11 +57,13 @@ run(fullfile(setupPathsRoot, '..', 'setupPaths.m'));
 outputsDir = fullfile(setupPathsRoot, '..', '..', 'training', 'outputs');
 dlTestPath = fullfile(outputsDir, 'idrid_test_referable_predictions.json');
 dlTrainPath = fullfile(outputsDir, 'idrid_train_referable_predictions.json');
+dlM2Path = fullfile(outputsDir, 'messidor2_calibration_referable_predictions.json');
 structTestPath = fullfile(setupPathsRoot, 'structural_features_test.mat');
 structTrainPath = fullfile(setupPathsRoot, 'structural_features_train.mat');
+structM2Path = fullfile(setupPathsRoot, 'messidor2_structural_features.mat');
 netPath = fullfile(setupPathsRoot, '..', 'grading', 'structuralReferableNet.mat');
 
-required = {dlTestPath, dlTrainPath, structTestPath, structTrainPath, netPath};
+required = {dlTestPath, dlTrainPath, dlM2Path, structTestPath, structTrainPath, structM2Path, netPath};
 for i = 1:numel(required)
     if ~isfile(required{i})
         error('compareIntegratedVsSingleTechnique:missingInput', ...
@@ -53,11 +74,16 @@ end
 netData = load(netPath);
 
 [probA_test, probB_test, trueReferable_test, ~] = loadAligned(dlTestPath, structTestPath, netData);
-[probA_train, probB_train, trueReferable_train, ~] = loadAligned(dlTrainPath, structTrainPath, netData);
+[probA_idridTrain, probB_idridTrain, trueReferable_idridTrain, ~] = loadAligned(dlTrainPath, structTrainPath, netData);
+[probA_m2, probB_m2, trueReferable_m2, ~] = loadAligned(dlM2Path, structM2Path, netData);
+
+probA_train = [probA_idridTrain; probA_m2];
+probB_train = [probB_idridTrain; probB_m2];
+trueReferable_train = [trueReferable_idridTrain; trueReferable_m2];
 
 nTest = numel(trueReferable_test);
-fprintf('Test (held-out) set: %d images. Calibration (combiner-fitting) set: %d images. No overlap by construction (different IDRiD official splits).\n', ...
-    nTest, numel(trueReferable_train));
+fprintf('Test (held-out) set: %d images. Calibration (combiner-fitting) set: %d images (%d IDRiD-train + %d Messidor-2). No overlap with test by construction (different datasets/official splits).\n', ...
+    nTest, numel(trueReferable_train), numel(trueReferable_idridTrain), numel(trueReferable_m2));
 
 % --- (C) naive average, no fitting ---
 probC_test = 0.5 * probA_test + 0.5 * probB_test;
@@ -71,7 +97,7 @@ disp(combinerModel.Coefficients);
 
 probD_test = predict(combinerModel, table(probA_test, probB_test, 'VariableNames', {'dlProb', 'matlabProb'}));
 
-[sensA, specA, accA] = evalAt(probA_test, 0.30, trueReferable_test); % config.py's REFERABLE_THRESHOLD
+[sensA, specA, accA] = evalAt(probA_test, 0.27, trueReferable_test); % config.py's TTA_REFERABLE_THRESHOLD -- the CURRENT deployed threshold, matching probA now being TTA-based (see header comment)
 [sensB, specB, accB] = evalAt(probB_test, 0.5, trueReferable_test);
 [sensC, specC, accC] = evalAt(probC_test, 0.5, trueReferable_test);
 [sensD, specD, accD] = evalAt(probD_test, 0.5, trueReferable_test);

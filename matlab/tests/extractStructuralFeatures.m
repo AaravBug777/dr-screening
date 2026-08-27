@@ -42,13 +42,15 @@ end
 if strcmp(SPLIT_NAME, 'train')
     imgDir = fullfile(idridDir, 'B. Disease Grading', '1. Original Images', 'a. Training Set');
     csvPath = fullfile(idridDir, 'B. Disease Grading', '2. Groundtruths', 'a. IDRiD_Disease Grading_Training Labels.csv');
-    % Stratified subsample (by referable/not) of the 413-image training
-    % set, not the full set -- keeps feature-extraction runtime reasonable
-    % for a small 8-feature classifier that doesn't need hundreds of images
-    % to fit well; the held-out TEST split below still uses the FULL
-    % official 103-image IDRiD test set for the reported metric, which is
-    % what matters for credibility.
-    maxN = 200;
+    % Previously a 200-image stratified subsample of the 413-image
+    % training set -- capped only for feature-extraction RUNTIME, not data
+    % scarcity (this project's own compareIntegratedVsSingleTechnique.m
+    % ablation documented the cap this way from the start). Now the full
+    % set, matching the test split's convention below: a combiner fit on
+    % 200 images is materially less reliable than one fit on 413+, and the
+    % extra ~9 minutes of extraction time is worth spending before
+    % concluding anything about whether integration helps.
+    maxN = Inf;
 else
     imgDir = fullfile(idridDir, 'B. Disease Grading', '1. Original Images', 'b. Testing Set');
     csvPath = fullfile(idridDir, 'B. Disease Grading', '2. Groundtruths', 'b. IDRiD_Disease Grading_Testing Labels.csv');

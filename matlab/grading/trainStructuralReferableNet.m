@@ -31,8 +31,36 @@ testsDir = fullfile(setupPathsRoot, '..', 'tests');
 trainData = load(fullfile(testsDir, 'structural_features_train.mat'));
 testData = load(fullfile(testsDir, 'structural_features_test.mat'));
 
-Xtrain = trainData.features;
-Ytrain = categorical(trainData.referable, [0 1], {'not_referable', 'referable'});
+% Calibration/training data = the full 413-image official IDRiD train
+% split PLUS 1,744 real, adjudicated-label Messidor-2 images
+% (extractMessidor2CalibrationFeatures.m, built from
+% training/build_messidor2_calibration_probs.py's reuse of an existing
+% cached TTA-logits set -- no synthetic data, no new model inference).
+% Previously this net was trained on only 200 IDRiD images; ~2,157 is a
+% materially more reliable sample for both this classifier's own numbers
+% and the downstream ablation combiner. Only loaded if present -- falls
+% back to IDRiD-train alone with a clear warning so this script still runs
+% standalone before that extraction has been done.
+m2Path = fullfile(testsDir, 'messidor2_structural_features.mat');
+if isfile(m2Path)
+    m2Data = load(m2Path);
+    Xtrain = [trainData.features; m2Data.features];
+    referableTrainAll = [trainData.referable; m2Data.referable];
+    fprintf('Calibration set: %d IDRiD-train + %d Messidor-2 = %d images.\n', ...
+        size(trainData.features, 1), size(m2Data.features, 1), size(Xtrain, 1));
+else
+    warning('trainStructuralReferableNet:noMessidor2', ...
+        'messidor2_structural_features.mat not found -- training on IDRiD-train alone (%d images). Run extractMessidor2CalibrationFeatures.m for the full calibration set.', ...
+        size(trainData.features, 1));
+    Xtrain = trainData.features;
+    referableTrainAll = trainData.referable;
+end
+Ytrain = categorical(referableTrainAll, [0 1], {'not_referable', 'referable'});
+
+% Test set is UNCHANGED: the official, untouched 103-image IDRiD test
+% split -- never part of the calibration set above, by construction (a
+% different official IDRiD split, and Messidor-2 is an entirely separate
+% dataset).
 Xtest = testData.features;
 Ytest = categorical(testData.referable, [0 1], {'not_referable', 'referable'});
 

@@ -54,7 +54,20 @@ function p = throughputParams(overrides)
 %         sensitivity -- see training/calibrate_tta_threshold.py.
 %
 %   ReviewTimeSeconds = 30 -- directly from the SIH26038 brief's own spec:
-%     "enabling ophthalmologist validation in under 30 seconds".
+%     "enabling ophthalmologist validation in under 30 seconds". This was a
+%     pure ASSUMPTION fed into the model with no measurement behind it
+%     until backend/main.py's POST /history/{id}/review-complete +
+%     backend/db.py's review_duration_seconds column: the app now times
+%     real elapsed seconds from a result being shown to the operator
+%     moving on, and the Stats tab shows the real measured median/p90
+%     alongside this assumed value. Still not a clinical validation study
+%     (the "operator" is whoever is using the app, not necessarily a
+%     licensed ophthalmologist -- see that endpoint's docstring), but it is
+%     now genuinely measured infrastructure rather than an unmeasured
+%     number, and this constant remains the deliberate SIMULATION INPUT
+%     (matching the brief's own spec) rather than being silently swapped
+%     for the real median -- a small sample early on would otherwise make
+%     this whole model's capacity numbers jump around with every review.
 %
 %   NumReviewers = 1 -- default deliberately reflects the SIH brief's own
 %     framing ("~1 ophthalmologist per 100,000 rural population"), not an

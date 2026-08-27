@@ -270,7 +270,8 @@ async def predict(file: UploadFile = File(...), operator: dict = Depends(auth.re
             # Stage-1 contract: do not grade a rejected image. Nothing below
             # this point runs -- no model load, no segmentation result to show.
             rejected_response = {"gradable": False, "quality": quality_response}
-            await run_in_threadpool(db.save_prediction, operator["id"], file.filename, rejected_response)
+            new_id = await run_in_threadpool(db.save_prediction, operator["id"], file.filename, rejected_response)
+            rejected_response["prediction_id"] = new_id
             return JSONResponse(content=rejected_response)
 
     # --- Stage 2 (Python): DR severity grading + Grad-CAM ---
@@ -348,7 +349,8 @@ async def predict(file: UploadFile = File(...), operator: dict = Depends(auth.re
             "nve_candidates": int(seg["nveCount"]),
         }
 
-    await run_in_threadpool(db.save_prediction, operator["id"], file.filename, response)
+    new_id = await run_in_threadpool(db.save_prediction, operator["id"], file.filename, response)
+    response["prediction_id"] = new_id
     return JSONResponse(content=response)
 
 
@@ -477,3 +479,27 @@ def history_detail(prediction_id: int, operator: dict = Depends(auth.require_ope
     if row is None:
         raise HTTPException(status_code=404, detail="No such prediction.")
     return row
+
+
+@app.post("/history/{prediction_id}/review-complete")
+def review_complete(prediction_id: int, duration_seconds: float = Body(..., embed=True),
+                     operator: dict = Depends(auth.require_operator)):
+    """Records how long an operator actually spent on ONE result before
+    moving on -- turns the SIH brief's "ophthalmologist validation in
+    under 30 seconds" claim from an unmeasured assumption (the Simulink
+    model's ReviewTimeSeconds parameter, see SIMULINK_ASSUMPTIONS above)
+    into something genuinely measured as the app gets used.
+
+    Important honesty note, not hidden: DURATION_SECONDS is real elapsed
+    wall-clock time from the frontend (result shown -> operator moved on),
+    but the OPERATOR is whoever is logged in and using this app -- not
+    necessarily, and in this project's demo/dev use not actually, a
+    licensed ophthalmologist. This is real timing instrumentation, not a
+    clinical review-time validation study; see top-level README's
+    limitations section for that distinction. It's still a strict
+    improvement over the previous state (a number nobody ever measured at
+    all)."""
+    recorded = db.record_review_duration(prediction_id, duration_seconds)
+    if not recorded:
+        raise HTTPException(status_code=404, detail="No such prediction, or duration out of the accepted range.")
+    return {"recorded": True}

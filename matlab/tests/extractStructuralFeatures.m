@@ -7,8 +7,14 @@
 % once -- matlab/grading/trainStructuralReferableNet.m re-loads this cache
 % on every run while tuning the network.
 %
-% Feature vector (8 dims), all straight outputs of already-existing
-% segmentation functions -- no new signal invented here, just packaged:
+% Feature vector (14 dims). Features 1-8 are straight outputs of
+% already-existing segmentation functions -- no new signal invented
+% there, just packaged. Features 9-14 (added to strengthen the
+% compareIntegratedVsSingleTechnique.m ablation -- see its README section)
+% are Medical Imaging Toolbox `radiomics` GLCM texture features over the
+% union lesion mask, a genuinely different kind of signal (how texturally
+% complex the flagged regions are) from the plain per-type pixel counts in
+% 4-6, which only say how MUCH was flagged, not what it looks like:
 %   1. vesselDensity          (segmentVessels)
 %   2. odConfidence           (localizeOpticDisc)
 %   3. foveaFound             (localizeFovea, 0/1)
@@ -17,6 +23,10 @@
 %   6. log1p(hemorrhageCount) (detectHemorrhages)
 %   7. log1p(nvCount)         (detectNeovascularization -- see its calibration caveat)
 %   8. any(nvdCount > 0)      (detectNeovascularization, 0/1 -- NVD is the single most PDR-specific classical signal available)
+%   9-14. GLCM contrast/correlation/energy/homogeneity/jointEntropy/
+%         differenceEntropy over the MA|exudate|hemorrhage union mask
+%         (extractRadiomicFeatures.m -- see its docstring for the
+%         Resegment=false fix a real degenerate-output bug needed)
 %
 % Usage: set SPLIT_NAME / IMG_DIR / CSV_PATH below (train or test), then run.
 
@@ -64,7 +74,7 @@ else
 end
 
 n = numel(keepIdx);
-features = nan(n, 8);
+features = nan(n, 14);
 referable = referableAll(keepIdx);
 imageNames = names(keepIdx);
 valid = false(n, 1);
@@ -83,10 +93,15 @@ for k = 1:n
         [vesselMask, vesselInfo] = segmentVessels(img, opts);
         odInfo = localizeOpticDisc(img, vesselMask, opts);
         foveaInfo = localizeFovea(img, odInfo, opts);
-        [~, maInfo] = detectMicroaneurysms(img, opts);
-        [~, exInfo] = detectHardExudates(img, opts);
-        [~, heInfo] = detectHemorrhages(img, opts);
+        [maMask, maInfo] = detectMicroaneurysms(img, opts);
+        [exMask, exInfo] = detectHardExudates(img, opts);
+        [heMask, heInfo] = detectHemorrhages(img, opts);
         [~, nvInfo] = detectNeovascularization(img, vesselMask, odInfo, opts);
+
+        [~, ~, lesionImg] = computeLesionExclusionMask(img, opts);
+        green = im2double(lesionImg(:, :, 2));
+        lesionMask = maMask | exMask | heMask;
+        radFeats = extractRadiomicFeatures(green, lesionMask, opts);
 
         features(k, :) = [
             vesselInfo.vesselDensity, ...
@@ -96,7 +111,8 @@ for k = 1:n
             log1p(exInfo.count), ...
             log1p(heInfo.count), ...
             log1p(nvInfo.count), ...
-            double(nvInfo.nvdCount > 0)
+            double(nvInfo.nvdCount > 0), ...
+            radFeats
         ];
         valid(k) = true;
     catch err

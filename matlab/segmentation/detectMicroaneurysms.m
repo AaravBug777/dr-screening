@@ -15,6 +15,24 @@ function [maMask, maInfo] = detectMicroaneurysms(img, opts)
 %   candidates — without relying solely on the (coarser-resolution) vessel
 %   exclusion mask, which matters since MAs often sit immediately adjacent
 %   to a vessel.
+%
+%   Sub-pixel localization: each kept candidate's location is reported
+%   TWICE in MAINFO.regions -- 'Centroid' (the ordinary geometric centroid
+%   of the thresholded binary blob, quantized to whatever the raster grid
+%   gives it) and 'WeightedCentroid' (the intensity-weighted center of mass
+%   of that same blob computed against CANDIDATERESPONSE, the continuous-
+%   valued pre-threshold response map, not the binary mask). Weighting by
+%   the underlying continuous response is what actually buys sub-pixel
+%   precision -- thresholding a blob and averaging its pixel COORDINATES
+%   can only ever land on values a plain average of integers can produce,
+%   whereas weighting those same coordinates by a continuous intensity
+%   field lets the estimate fall anywhere between pixels, the same
+%   principle centroid-based sub-pixel localization uses in microscopy/
+%   astronomy. MAINFO.centroidsSubpixel collects these as an Nx2 [x y]
+%   matrix for callers that just want the coordinates without unpacking
+%   MAINFO.regions. See tests/validateMASubpixelCentroid.m for the
+%   empirical check that this genuinely lands off-grid, not just relabeled
+%   integer centroids.
 
 if nargin < 2 || isempty(opts)
     opts = defaultSegmentationConfig();
@@ -65,7 +83,11 @@ raw = candidateResponse > level & candidateMask;
 sizeFiltered = bwareaopen(raw, opts.MAMinAreaPx);
 
 cc = bwconncomp(sizeFiltered);
-props = regionprops(cc, 'Area', 'Centroid', 'EquivDiameter');
+% candidateResponse (not the binary mask) as the intensity image: WeightedCentroid
+% then averages pixel COORDINATES weighted by this continuous response, which is
+% what makes it land off the integer grid -- see the sub-pixel note in the
+% function docstring above.
+props = regionprops(cc, candidateResponse, 'Area', 'Centroid', 'WeightedCentroid', 'EquivDiameter');
 keep = [props.Area] <= opts.MAMaxAreaPx;
 
 maMask = false(size(sizeFiltered));
@@ -80,5 +102,10 @@ keptProps = props(keep);
 maInfo.count = nnz(keep);
 maInfo.totalAreaPx = sum([keptProps.Area]);
 maInfo.regions = keptProps;
+if isempty(keptProps)
+    maInfo.centroidsSubpixel = zeros(0, 2);
+else
+    maInfo.centroidsSubpixel = reshape([keptProps.WeightedCentroid], 2, [])';
+end
 
 end

@@ -398,6 +398,40 @@ Beyond the core screening flow, the app now has:
   that needs real infrastructure this local machine doesn't have (see
   "Known limitations" below).
 
+## 6. Validation against published benchmarks
+
+The rest of this document validates the pipeline against ground truth ON
+published datasets (IDRiD, DRIVE, Messidor-2). That's a different claim
+from validating it AGAINST OTHER PUBLISHED METHODS' reported numbers on
+those same datasets — the table below does the latter, which the SIH
+brief's Expected Solution also asks for. Every number here was pulled from
+a live search against the actual cited source just before writing this
+table, not from memory — several genuinely surprised the author (see the
+Gulshan row) — so check the link before citing this table in a submission
+rather than trusting it transitively.
+
+| Task / dataset | Published result | This project | Directly comparable? |
+|---|---|---|---|
+| Referable DR detection, Messidor-2 | Gulshan et al. 2016 (JAMA): **96.1% sens / 93.9% spec** at the high-sensitivity operating point (AUC 0.990), graded by a 7-8-ophthalmologist panel adjudicating disagreements | **92.05% sens / 87.43% spec** (TTA-calibrated, held-out split, `training/calibrate_tta_threshold.py`) | Partially — same dataset and same referable-DR task, but Gulshan's reference standard is a multi-ophthalmologist adjudicated panel; this project's ground truth is Messidor-2's single-grader published labels. A stricter reference standard is a harder bar to clear, so this isn't an apples-to-apples gap of the size it looks like, but it isn't nothing either. |
+| DR grading (5-class), IDRiD official challenge | Winning/top submissions: **quadratic weighted kappa 0.82-0.93** (Porwal et al. 2018 challenge report) | This project doesn't report a 5-class kappa on IDRiD specifically — closest comparable figure is the binary-referable kappa of **0.8442** (TTA, Messidor-2 held-out split, a different dataset and a coarser 2-class task) | No — different dataset, different task granularity (5-class ordinal vs. binary referable). Listed for scale/context only, not as a head-to-head result. |
+| Vessel segmentation, DRIVE | Classical Frangi filter (a comparable, non-DL classical method): **91.7% accuracy, 93.5% AUC, 66.5% sensitivity**. Modern U-Net-family DL methods reach materially higher (74-82% sensitivity, 95-97% accuracy, per recent DRIVE leaderboard papers). | **92.2% accuracy, 64.2% sensitivity, 96.3% specificity, 0.673 Dice** (`fibermetric`-based, `matlab/segmentation/README.md`) | Yes, against the classical-method row — genuinely comparable (same dataset, same task, same family of technique): accuracy is essentially tied (92.2% vs 91.7%), sensitivity close (64.2% vs 66.5%). Honestly behind the modern DL-based rows, as expected for a classical, non-learned method — not claiming otherwise. |
+| Microaneurysm segmentation, IDRiD challenge | Top challenge submission: **AUPR 0.5254** (precision-recall-curve-based ranking metric, at the confidence threshold that produces the challenge's ranking score) | Pixel-level **Dice 0.076** at a single fixed threshold; lesion-level detection **82.0%** hit-rate (`matlab/segmentation/README.md`) | No, not directly — AUPR (area under a precision-recall curve swept over confidence thresholds, on a probability map) and Dice-at-one-threshold (on a binary decision) measure genuinely different things; a method can have a strong AUPR and a weak single-threshold Dice simultaneously depending on where that threshold sits. Reported side by side for scale, not claimed as a comparable number. |
+
+**Honest summary of what this table shows**: this project's referable-DR
+detection is in the neighborhood of, but measurably behind, Gulshan et
+al.'s landmark result — expected, given that used a materially larger
+private training set and a stricter multi-grader reference standard, not
+a limitation unique to this pipeline. The classical vessel segmentation
+genuinely matches the classical-method literature baseline it's actually
+comparable to. The lesion-segmentation and 5-class-kappa rows are included
+for scale/context but flagged as not directly comparable rather than
+forced into a misleading head-to-head — consistent with this project's
+practice elsewhere (see the integrated-vs-single-technique ablation above)
+of reporting a nuanced or unfavorable result honestly rather than only the
+comparisons that flatter it.
+
+Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45732.pdf) ([reproduction study](https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0217541)) · [IDRiD challenge / Porwal et al. 2018](https://idrid.grand-challenge.org/Leaderboard/) · [DRIVE vessel segmentation benchmark comparisons](https://www.nature.com/articles/s41598-026-48475-6) ([SA-UNet](https://arxiv.org/pdf/2004.03696)).
+
 ## Suggested build order for a hackathon
 
 1. Get APTOS downloaded and training loop running end-to-end — even 2-3
@@ -439,7 +473,15 @@ Beyond the core screening flow, the app now has:
   measured ceiling for the classical methods used, documented rather than
   hidden. Useful as an unconfirmed candidate generator for review (82% hit
   rate for microaneurysms specifically), not a standalone diagnostic
-  segmentation. Hemorrhage candidates are further split dot/blot vs.
+  segmentation. Microaneurysm centroids are genuinely sub-pixel — computed
+  as an intensity-weighted center of mass over the continuous pre-threshold
+  response map, not the quantized binary blob (`detectMicroaneurysms.m`'s
+  `WeightedCentroid`) — verified empirically, not just asserted:
+  `tests/validateMASubpixelCentroid.m` measured a mean 0.104px offset from
+  the plain integer centroid across 75,833 real candidates (54 IDRiD
+  images), with 0.0% landing on an identical integer position, directly
+  addressing the SIH brief's "sub-pixel microaneurysm detection" phrase.
+  Hemorrhage candidates are further split dot/blot vs.
   flame-shaped (shape + radial-orientation-from-disc heuristic — see
   `matlab/segmentation/detectHemorrhages.m`), though that type split has no
   expert ground truth to validate against. Neovascularization (NVD/NVE)
@@ -466,24 +508,40 @@ Beyond the core screening flow, the app now has:
   as a one-page-scannable PDF (grade, referable decision, all three image
   views, structural findings split into validated vs. lower-confidence
   groups), directly addressing the brief's "automated annotated reports...
-  ophthalmologist validation in under 30 seconds" requirement. The under-30-
-  seconds review-TIME claim itself is unmeasured (no clinician user study
-  was run) — the report's speed of PRODUCTION and scannable one-page layout
-  are what's actually verified.
+  ophthalmologist validation in under 30 seconds" requirement. The
+  review-TIME claim now has real instrumentation behind it (`POST
+  /history/{id}/review-complete`, `backend/db.py`'s `review_duration_seconds`,
+  a "Review time" card on the Stats tab) — it times real elapsed seconds
+  from a result being shown to the operator moving on, and reports the
+  measured median/p90 alongside the brief's assumed 30s figure. Still not
+  a clinician validation study (the "operator" is whoever's logged in and
+  using the app locally, not a licensed ophthalmologist) — but it's now a
+  real, running measurement rather than an unmeasured number nobody ever
+  checked, and will show genuine data as the app accumulates real usage.
 - An ablation directly testing the brief's "integrated pipeline outperforms
   any single technique" claim (`matlab/tests/compareIntegratedVsSingleTechnique.m`)
   found the honest answer is nuanced, not a clean win: combining the Python
-  DL grader's referable probability with a small MATLAB Deep Learning
-  Toolbox classifier trained on classical structural features (vessel
-  density, lesion candidate counts, etc.) — evaluated on the official IDRiD
-  test set, n=103 — does NOT clearly beat the DL grader alone, even with a
-  properly fit (not just averaged) combiner: DL-alone 90.6%/74.4% sens/spec
-  vs. the fitted combiner's 87.5%/74.4%. The classical structural features
-  just don't carry much signal independent of what the DL grader already
-  captures. Reported honestly rather than a forced flattering result — the
-  stronger, already-evidenced form of "integration helping" in this project
-  is the quality-gate-before-grading + calibration story above, not blending
-  two independent classifiers' outputs.
+  DL grader's referable probability with a MATLAB Deep Learning Toolbox
+  classifier trained on 14 classical-structural + Medical Imaging Toolbox
+  `radiomics` texture features — evaluated on the official IDRiD test set,
+  n=103 — does NOT clearly beat the DL grader alone, even with a properly
+  fit (not just averaged) combiner: DL-alone 90.6%/74.4% sens/spec vs. the
+  fitted combiner's 89.1%/71.8%. Richer features genuinely helped the
+  MATLAB-alone technique itself (specificity 46.2%→59.0% over the original
+  8-feature version), but that didn't translate into the *combination*
+  clearing the DL grader alone — its structural signal, even enriched,
+  still doesn't carry much information independent of what the DL grader
+  already captures from the raw image. Worth noting rather than
+  cherry-picking: the naive UNFITTED average lands at 84.4%/82.1%, a real
+  but different trade-off (materially higher specificity, lower
+  sensitivity) — not "integration wins" either, just a different point on
+  the trade-off curve, reported alongside the fitted result rather than
+  picking whichever looks best in isolation. Full technique-by-technique
+  table in `matlab/README.md`'s "Ablation" section. Reported honestly
+  rather than a forced flattering result — the stronger, already-evidenced
+  form of "integration helping" in this project is the
+  quality-gate-before-grading + calibration story above, not blending two
+  independent classifiers' outputs.
 - **Low-resolution/re-sourced images can still fool the grader — now caught
   before grading, but worth knowing this failure mode exists.** A real
   user-submitted test with a 480x432px image sourced from a published paper

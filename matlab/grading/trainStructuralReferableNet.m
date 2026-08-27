@@ -1,10 +1,11 @@
 % Trains a small feed-forward network (Deep Learning Toolbox) to predict
-% referable DR (grade >= 2) directly from the 8 classical structural
+% referable DR (grade >= 2) directly from the 14 classical structural
 % features this project's own MATLAB segmentation module already produces
 % (vessel density, OD confidence, fovea found, MA/exudate/haemorrhage/NV
-% candidate counts) -- see tests/extractStructuralFeatures.m for how those
-% were extracted and cached (run that first for both 'train' and 'test'
-% splits).
+% candidate counts, plus 6 Medical Imaging Toolbox `radiomics` GLCM texture
+% features over the lesion mask) -- see tests/extractStructuralFeatures.m
+% for how those were extracted and cached (run that first for both 'train'
+% and 'test' splits).
 %
 % WHY THIS EXISTS: the SIH26038 brief's tool list names Deep Learning
 % Toolbox explicitly, but this project's primary DR severity grader is
@@ -34,6 +35,21 @@ Xtrain = trainData.features;
 Ytrain = categorical(trainData.referable, [0 1], {'not_referable', 'referable'});
 Xtest = testData.features;
 Ytest = categorical(testData.referable, [0 1], {'not_referable', 'referable'});
+
+% The 6 radiomics texture features (columns 9-14) come back NaN for any
+% image with an empty lesion mask (extractRadiomicFeatures.m -- correctly
+% "no lesion texture to measure", not a failed extraction), which is
+% common for real No-DR images. Imputed to 0 rather than dropping the row:
+% dropping would have skewed the training/test sets away from exactly the
+% majority-class (non-referable) images that matter most for a balanced
+% sensitivity/specificity read, for the sake of 6 of 14 features on rows
+% where the other 8 are still perfectly valid.
+nNanTrain = nnz(any(isnan(Xtrain), 2));
+nNanTest = nnz(any(isnan(Xtest), 2));
+fprintf('Imputing NaN radiomics features (empty lesion mask) to 0: %d/%d train rows, %d/%d test rows affected.\n', ...
+    nNanTrain, size(Xtrain, 1), nNanTest, size(Xtest, 1));
+Xtrain(isnan(Xtrain)) = 0;
+Xtest(isnan(Xtest)) = 0;
 
 numFeatures = size(Xtrain, 2);
 layers = [

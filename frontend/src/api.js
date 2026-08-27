@@ -122,6 +122,26 @@ export function historyExportCsvUrl(filters = {}) {
   return `${API_BASE}/history/export.csv?${buildHistoryQuery(filters)}`
 }
 
+// Real, measured operator review time -- the counterpart to
+// matlab/simulink/throughputParams.m's assumed ReviewTimeSeconds=30. Fired
+// once per result, when the operator moves on (see App.jsx's
+// finalizeReview()) -- best-effort, deliberately not retried through
+// fetchWithRetry's backoff (losing one timing sample to a network blip
+// isn't worth delaying the operator's next action).
+export async function recordReviewComplete(predictionId, durationSeconds) {
+  if (predictionId == null) return
+  try {
+    await fetch(`${API_BASE}/history/${predictionId}/review-complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ duration_seconds: durationSeconds }),
+    })
+  } catch {
+    // best-effort telemetry -- a lost sample shouldn't surface as a user-facing error
+  }
+}
+
 export async function fetchStats() {
   const res = await fetchWithRetry(`${API_BASE}/stats`)
   if (!res.ok) throw new Error(await parseErrorDetail(res))

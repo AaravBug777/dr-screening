@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS predictions (
     predicted_class INTEGER,
     referable INTEGER,
     referable_probability REAL,
-    response_json TEXT NOT NULL
+    response_json TEXT NOT NULL,
+    review_duration_seconds REAL
 );
 
 CREATE INDEX IF NOT EXISTS idx_predictions_operator ON predictions(operator_id);
@@ -65,6 +66,19 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         conn.executescript(_SCHEMA)
+        _migrate(conn)
+
+
+def _migrate(conn):
+    """Lightweight additive migration for existing databases created before
+    a column existed (CREATE TABLE IF NOT EXISTS above only handles a
+    brand-new DB, not one that predates a schema change -- e.g. this
+    project's own local netra.db). Checked via PRAGMA table_info rather
+    than a version table: simple, and adequate for the handful of additive
+    columns this local-prototype-grade DB has ever needed."""
+    existing_cols = {row["name"] for row in conn.execute("PRAGMA table_info(predictions)").fetchall()}
+    if "review_duration_seconds" not in existing_cols:
+        conn.execute("ALTER TABLE predictions ADD COLUMN review_duration_seconds REAL")
 
 
 def create_operator(username: str, password_hash: str, salt: str) -> int:
@@ -118,6 +132,30 @@ def save_prediction(operator_id, source_filename, response: dict) -> int:
             ),
         )
         return cur.lastrowid
+
+
+def record_review_duration(prediction_id: int, duration_seconds: float) -> bool:
+    """Records how long an operator actually spent on ONE result before
+    moving on -- real measured data for the SIH brief's "ophthalmologist
+    validation in under 30 seconds" claim, which until now only existed as
+    an unmeasured assumption fed into the Simulink model
+    (matlab/simulink/throughputParams.m's ReviewTimeSeconds). This doesn't
+    make every measurement a clinician's (see main.py's endpoint docstring
+    for what the frontend actually times), but it means the number is now
+    genuinely MEASURED as real usage accumulates, not just asserted.
+    Clamped to a sane range (0.5s-3600s) -- a tab left open overnight
+    shouldn't corrupt the real distribution with a multi-hour outlier, and
+    a sub-500ms value is almost certainly a double-fire, not a real review.
+    Returns False (no-op) for an unknown prediction_id or an out-of-range
+    duration, True if it was recorded."""
+    if duration_seconds is None or not (0.5 <= duration_seconds <= 3600):
+        return False
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE predictions SET review_duration_seconds = ? WHERE id = ?",
+            (duration_seconds, prediction_id),
+        )
+        return cur.rowcount > 0
 
 
 def _history_filter_clause(operator_id=None, date_from=None, date_to=None,
@@ -212,6 +250,7 @@ def compute_stats():
                 "referable": 0, "referable_rate": None, "grade_distribution": {},
                 "reject_reasons": {}, "screenings_by_day": [],
                 "first_screening_at": None, "last_screening_at": None,
+                "review_time": {"n": 0, "median_seconds": None, "p90_seconds": None},
             }
 
         gradable = conn.execute("SELECT COUNT(*) AS n FROM predictions WHERE gradable = 1").fetchone()["n"]
@@ -250,6 +289,23 @@ def compute_stats():
 
         bounds = conn.execute("SELECT MIN(created_at) AS first, MAX(created_at) AS last FROM predictions").fetchone()
 
+        # Real, MEASURED operator review time -- see main.py's
+        # /history/{id}/review-complete endpoint docstring for exactly what
+        # this does and doesn't prove (real timing instrumentation, not a
+        # clinical validation study). Counterpart to
+        # matlab/simulink/throughputParams.m's ReviewTimeSeconds=30
+        # ASSUMPTION -- n=0 until the app has actually been used through a
+        # full review cycle, reported honestly as null rather than
+        # defaulting to the assumed 30s and pretending it's measured.
+        durations = [r["review_duration_seconds"] for r in conn.execute(
+            "SELECT review_duration_seconds FROM predictions WHERE review_duration_seconds IS NOT NULL"
+        ).fetchall()]
+        review_time = {"n": len(durations), "median_seconds": None, "p90_seconds": None}
+        if durations:
+            durations.sort()
+            review_time["median_seconds"] = durations[len(durations) // 2]
+            review_time["p90_seconds"] = durations[min(len(durations) - 1, int(len(durations) * 0.9))]
+
         return {
             "total": total,
             "gradable": gradable,
@@ -262,6 +318,7 @@ def compute_stats():
             "screenings_by_day": screenings_by_day,
             "first_screening_at": bounds["first"],
             "last_screening_at": bounds["last"],
+            "review_time": review_time,
         }
 
 

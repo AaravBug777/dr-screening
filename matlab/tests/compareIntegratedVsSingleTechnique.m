@@ -12,8 +12,9 @@
 %                            scaling + tuned threshold)
 %   (B) MATLAB-alone      -- the structural-features classifier
 %                            (trainStructuralReferableNet.m), using ONLY
-%                            the 8 classical MATLAB segmentation-module
-%                            features -- no image pixels, no DL
+%                            the 14 classical MATLAB segmentation-module +
+%                            radiomics texture features -- no raw image
+%                            pixels, no DL
 %   (C) Integrated, naive -- simple unweighted average of (A) and (B)'s
 %                            referable probabilities, thresholded at 0.5
 %   (D) Integrated, fit    -- logistic regression combiner (Statistics and

@@ -41,9 +41,9 @@ ask, so here's the evidenced answer for each:
 | Image Processing | Extensively used | `fibermetric`, `adapthisteq`, `imbothat`/`imtophat`, `bwskel`, `bwdistgeodesic`, `regionprops`, `bwareaopen`, etc. throughout `quality/` and `segmentation/`. |
 | Simulink | Extensively used | `simulink/` — see below. |
 | Computer Vision | **Used**, `segmentation/annotateStructuralFindings.m` | `insertShape`/`insertText`/`insertMarker` draw a MATLAB-native annotated overlay (OD circle, fovea marker, lesion-count banner) — a genuine, verified use (confirmed correct against a clean example image; also caught a real OD-mislocalization case on a heavily-exudative image, see `segmentation/README.md`), not previously exercised anywhere in this project before this pass. |
-| Deep Learning | **Used**, `grading/trainStructuralReferableNet.m` | Trains a real feed-forward network (`trainnet`, `featureInputLayer`/`fullyConnectedLayer`/`dropoutLayer`/`softmaxLayer`) on classical structural features extracted by this project's own segmentation code, evaluated on the held-out IDRiD test set. (An earlier attempt to import the production PyTorch model via ONNX — `training/export_onnx.py` — verified the export itself matches PyTorch to 5 decimal places, but MATLAB's `importNetworkFromONNX` needs the separate "Deep Learning Toolbox Converter for ONNX Model Format" add-on, which isn't installed and can't be installed headlessly from this environment — confirmed by actually trying, not assumed. The `trainnet` classifier below is the fallback that actually runs, and doubles as real ablation-comparison material — see "Ablation" below.) |
+| Deep Learning | **Used, two ways** — `grading/predictGradeMATLAB.m` (production model, verified) and `grading/trainStructuralReferableNet.m` (native training) | `predictGradeMATLAB.m` imports the production EfficientNet-B3 checkpoint via `importNetworkFromONNX` and runs it entirely inside MATLAB — `tests/validateONNXAgainstPython.m` confirms 5/5 class agreement against the PyTorch/ONNX Runtime reference with a max probability difference of ~6e-7 (floating-point noise, not a real disagreement). An earlier pass found the "Deep Learning Toolbox Converter for ONNX Model Format" add-on missing and assumed it couldn't be installed headlessly — that assumption was stale; re-checked via `matlab.addons.installedAddons` and it's present (v26.1.7) on this environment, so the import path now runs for real rather than falling back. `trainStructuralReferableNet.m` separately trains a real feed-forward network (`trainnet`, `featureInputLayer`/`fullyConnectedLayer`/`dropoutLayer`/`softmaxLayer`) on this project's own classical + radiomics structural features, evaluated on the held-out IDRiD test set — kept as real ablation-comparison material (see "Ablation" below), not superseded by the ONNX path since it answers a different question (can 14 summary numbers alone predict referable DR, not just "does MATLAB reproduce the trained CNN"). |
 | Statistics & Machine Learning | **Used**, two places | `ranksum` (`tests/checkNeovascularizationTrend.m` — non-parametric PDR-vs-No-DR comparison, p=0.0124) and `fitglm` (`tests/compareIntegratedVsSingleTechnique.m` — logistic regression combiner). |
-| Medical Imaging | **Verified non-applicable**, not just unused | Tried the one plausible integration point — wrapping a fundus JPEG in a `medicalImage` object for its metadata/display machinery — and confirmed its `(pixels, info)` constructor requires `info` to be a real `dicominfo`-sourced struct (`medical:medicalImage:mustBeMetadataStruct`), rejecting a hand-built struct outright. Fabricating a synthetic DICOM wrapper around non-DICOM data just to claim toolbox usage would be a contrived box-check, not a genuine fit — this toolbox is built for volumetric/DICOM clinical imaging (CT/MRI/ultrasound), which 2D color fundus photography from a portable camera simply isn't. Documented here as a checked, evidenced non-use rather than a silent gap. |
+| Medical Imaging | **Used**, `grading/extractRadiomicFeatures.m` | `medicalImage` (the one integration point tried first) genuinely is inapplicable — its `(pixels, info)` constructor requires a real `dicominfo`-sourced struct, and fabricating a synthetic DICOM wrapper around non-DICOM data just to claim usage would be a contrived box-check, not a genuine fit. `radiomics`, a separate and distinct toolbox entry point, is not inapplicable: it accepts a plain 2-D numeric image + ROI mask directly (confirmed via `help radiomics`), computing real GLCM texture features (contrast, correlation, energy, homogeneity, entropy) over this project's own lesion candidate masks. Its default `Resegment=true` initially produced degenerate, constant output regardless of real input variation (confirmed by feeding it four different real fundus images and getting byte-identical results) — traced to a resegmentation convention built for CT Hounsfield-unit-scaled data, not this project's [0,1]-scaled fundus intensities; fixed with `Resegment=false` + explicit 32-bin discretization, then re-verified across the same four images to produce genuinely distinct values before trusting it. Feeds `trainStructuralReferableNet.m`'s feature set (see "Ablation" below). |
 
 ## Planned layout
 
@@ -85,15 +85,20 @@ ask, so here's the evidenced answer for each:
   above) is in `segmentation/README.md`.
 - `grading/` — **MATLAB-native Deep Learning Toolbox usage, verified against
   real data.** `trainStructuralReferableNet.m` trains a small classifier on
-  the 8 classical structural features `segmentation/` produces, evaluated on
-  the official IDRiD test set (75.0% sensitivity / 46.2% specificity /
-  64.1% accuracy for referable DR — real, and honestly weaker than the
-  Python DL grader, as expected from 8 summary numbers vs. a full image).
+  14 features — 8 classical structural features `segmentation/` produces
+  plus 6 Medical Imaging Toolbox `radiomics` texture features
+  (`extractRadiomicFeatures.m`) — evaluated on the official IDRiD test set
+  (75.0% sensitivity / 59.0% specificity / 68.9% accuracy for referable DR
+  — real, and honestly weaker than the Python DL grader, as expected from
+  14 summary numbers vs. a full image; the 6 added texture features did
+  measurably help versus the original 8-feature version's 46.2%
+  specificity / 64.1% accuracy).
   `predictGradeMATLAB.m` runs the production PyTorch checkpoint natively in
-  MATLAB via an ONNX export — see the tool-coverage table above for why this
-  path is currently blocked by a missing (headless-uninstallable) add-on,
-  and what runs instead. See `tests/compareIntegratedVsSingleTechnique.m`
-  for how this feeds the ablation below.
+  MATLAB via an ONNX export, verified to reproduce PyTorch/ONNX Runtime's
+  predictions exactly (5/5 class agreement, ~6e-7 max probability
+  difference) — see the tool-coverage table above. See
+  `tests/compareIntegratedVsSingleTechnique.m` for how the structural net
+  feeds the ablation below.
 - `simulink/` — **done, validated**. District-level telemedicine screening
   throughput model (acquisition rate, bandwidth, processing throughput,
   review capacity), built as an actual `.slx` model via the Simulink API
@@ -134,22 +139,47 @@ the integrated pipeline outperforms any single technique approach."
 `tests/compareIntegratedVsSingleTechnique.m` tests this directly and
 reports the honest result rather than a flattering one — full methodology
 and numbers in that script's header and in the top-level `README.md`'s
-"Known limitations" section. Short version: on the official IDRiD test set
-(n=103), combining the Python DL grader's referable probability with a
-MATLAB structural-features classifier — even with a properly fit logistic
-combiner (Statistics and Machine Learning Toolbox `fitglm`, fit on a
-separate 200-image calibration split, never touching the reported test
-set) — does **not** clearly beat the DL grader alone (87.5%/74.4%
-sensitivity/specificity for the fitted combiner vs. 90.6%/74.4% for
-DL-alone). The fitted combiner's own coefficients explain why: it weighted
-the DL probability heavily (coefficient 8.35, p<0.001) and the structural
-features barely (coefficient 1.10, p=0.53, not statistically significant)
-— the classical structural signal just doesn't carry much information
+"Known limitations" section. On the official IDRiD test set (n=103),
+comparing four techniques (fit/calibrated only on a separate 200-image
+split, never touching the reported test set):
+
+| Technique | Sens | Spec | Acc |
+|---|---|---|---|
+| (A) DL-alone (Python) | 90.6% | 74.4% | 84.5% |
+| (B) MATLAB structural-alone (14 features, incl. radiomics) | 75.0% | 59.0% | 68.9% |
+| (C) Integrated, naive average | 84.4% | 82.1% | 83.5% |
+| (D) Integrated, fitted combiner (`fitglm`) | 89.1% | 71.8% | 82.5% |
+
+The honest answer stays **no, not clearly** — (D), the properly fit
+combiner, is close to (A) but doesn't beat it (sensitivity -1.5pp,
+specificity -2.6pp, accuracy -2.0pp). This is after a real, verified
+attempt to strengthen (B): its 8 original features were extended to 14 by
+adding Medical Imaging Toolbox `radiomics` GLCM texture features over the
+lesion mask (`grading/extractRadiomicFeatures.m` — see the tool-coverage
+table above for the real degenerate-output bug that needed fixing before
+these features carried any signal at all). That genuinely helped
+(B) itself — specificity rose from 46.2% to 59.0%, accuracy from 64.1% to
+68.9% (the old 8-feature numbers, for comparison) — but a materially
+better single-technique component didn't translate into the *integration*
+(D) actually beating (A), because the combiner still weights the DL
+probability far more heavily than the structural one (this session's exact
+fitted coefficients are in the script's own printed output, not restated
+here since they'll drift slightly run to run on the same data due to
+`fitglm`'s numerical fitting) — the classical structural signal, even
+enriched with texture features, still doesn't carry much information
 independent of what the DL grader already captures from the raw image.
 
-This is a genuinely useful negative result, not a failure to hide: it says
-the form of "integration" that actually helps in this pipeline is the
-STAGED architecture already built and validated elsewhere in this
+Worth noting rather than burying: (C), the naive UNFITTED average, is the
+most balanced of the four on THIS test set — 82.1% specificity (materially
+above DL-alone's 74.4%) at a real sensitivity cost (84.4% vs 90.6%). That's
+not "integration wins" either — it's a different, real trade-off, and
+reported alongside (D) specifically to show that not every combination
+result points the same direction, and picking whichever one looks best in
+isolation would be cherry-picking, not honest reporting.
+
+This is a genuinely useful negative/nuanced result, not a failure to hide:
+it says the form of "integration" that actually helps in this pipeline is
+the STAGED architecture already built and validated elsewhere in this
 project — quality-gating/enhancing an image BEFORE it reaches the grader
 (Stage-1 contract below), and calibrating that grader's referable decision
 against real external data (top-level `README.md`'s calibration history,

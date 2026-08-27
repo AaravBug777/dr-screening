@@ -63,8 +63,15 @@ one:**
 
 **Read this correctly, not just as a bad number.** NV is clinically rare
 (present only in proliferative DR) — of 198 MAPLES-DR images with an NV
-mask file, only 5 matched, NV-positive ones were available; that is a
-genuinely small sample, and these percentages carry wide uncertainty. But
+mask file, only 6 are genuinely NV-positive, and only 5 of those match an
+image already downloaded in this project's Messidor-2 set; the 6th
+(`20051202_51488_0400_PP`) belongs to the original Messidor collection,
+not the Messidor-2 subset available on Kaggle, and getting it requires a
+separate registration process outside what this session can complete
+(`tests/checkMissingNVImage.m` confirms exactly which file and why, rather
+than leaving "n=5" unexplained) — so n=5 is the genuine current ceiling on
+this sample, not a code limitation. That is a genuinely small sample, and
+these percentages carry wide uncertainty. But
 even accounting for that, the finding is real and worth stating plainly:
 **this detector's candidates do not spatially land on the true NV
 lesions** — zero pixel overlap across every positive case, and it also
@@ -372,7 +379,14 @@ plausible, non-degenerate split (neither category is empty or near-100%),
 though this classification itself has not been validated against expert
 ground truth (IDRiD's segmentation masks don't carry a per-lesion type
 label to check against) — treat it with the same "candidate, not confirmed"
-framing as detection.
+framing as detection. Actively re-checked, not just assumed still true:
+MAPLES-DR (found and integrated this session specifically because it has
+real NV ground truth — see below) was also checked for a hemorrhage-type
+label and confirmed to have only a single unified `Hemorrhages` category,
+same as every other dataset available to this project — no dataset this
+project has access to carries dot/blot-vs-flame ground truth, so this
+remains a genuine, currently-unfixable data-availability gap rather than
+an oversight.
 
 ## Neovascularization directional check
 

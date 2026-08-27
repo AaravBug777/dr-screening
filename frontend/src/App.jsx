@@ -16,7 +16,7 @@ import RetinaEye from './components/RetinaEye'
 import VesselField from './components/VesselField'
 import AmbientField from './components/AmbientField'
 import { GRADE_MEANINGS, URGENCY_NOTES } from './content'
-import { fetchHealth, fetchMe, fetchHistoryDetail, fetchReportPdf, logout, predictImage } from './api'
+import { fetchHealth, fetchMe, fetchHistoryDetail, fetchReportPdf, logout, predictImage, recordReviewComplete } from './api'
 import useOnlineStatus from './hooks/useOnlineStatus'
 
 const SEVERITY_TONE = {
@@ -82,6 +82,21 @@ export default function App() {
   const [resultVersion, setResultVersion] = useState(0)
   const [reportStatus, setReportStatus] = useState('idle') // idle | generating | error
 
+  // Real, measured operator review time (see api.js's recordReviewComplete
+  // and backend/main.py's /history/{id}/review-complete docstring for what
+  // this does and doesn't prove). reviewTimer holds {predictionId,
+  // shownAt} for the result CURRENTLY on screen, from a fresh /predict
+  // call only -- re-opening an old History record isn't a live review
+  // event, so handleSelectHistory deliberately never sets this.
+  const [reviewTimer, setReviewTimer] = useState(null)
+
+  const finalizeReview = () => {
+    if (!reviewTimer) return
+    const elapsed = (Date.now() - reviewTimer.shownAt) / 1000
+    recordReviewComplete(reviewTimer.predictionId, elapsed)
+    setReviewTimer(null)
+  }
+
   // Batch upload queue -- a PHC operator photographs many patients per
   // session, not one at a time. Processed strictly sequentially: each
   // /predict call awaits the previous one, which naturally matches
@@ -90,7 +105,14 @@ export default function App() {
   // parallel requests that mostly wait regardless.
   const [batchQueue, setBatchQueue] = useState([]) // [{id, name, file, status, result, quality}]
 
-  const applyResult = (data) => {
+  // fresh=true means this is a just-computed /predict result the operator
+  // is seeing for the first time -- starts the review-time clock.
+  // Re-opening an old History record calls this with fresh=false/omitted.
+  const applyResult = (data, fresh = false) => {
+    if (fresh) {
+      finalizeReview() // close out whatever was previously on screen before starting the new clock
+      setReviewTimer({ predictionId: data.prediction_id, shownAt: Date.now() })
+    }
     setQuality(data.quality || null)
     if (!data.gradable) {
       setStatus('needs_recapture')
@@ -109,7 +131,7 @@ export default function App() {
     setSourceFilename(file.name)
     try {
       const data = await predictImage(file)
-      applyResult(data)
+      applyResult(data, true)
     } catch (err) {
       setErrorMsg(err.message || 'Something went wrong analyzing this image.')
       setStatus('error')
@@ -121,6 +143,7 @@ export default function App() {
       await handleFileSelected(files[0])
       return
     }
+    finalizeReview() // starting a batch ends whatever single result was being reviewed
     const queue = files.map((file, i) => ({
       id: `${Date.now()}-${i}`, name: file.name, file, status: 'queued', result: null, quality: null,
     }))
@@ -139,7 +162,7 @@ export default function App() {
       try {
         const data = await predictImage(item.file)
         setBatchQueue((q) => q.map((x) => (x.id === item.id
-          ? { ...x, status: data.gradable ? 'done' : 'rejected', result: data.gradable ? data : null, quality: data.quality }
+          ? { ...x, status: data.gradable ? 'done' : 'rejected', result: data.gradable ? data : null, quality: data.quality, predictionId: data.prediction_id }
           : x)))
       } catch (err) {
         setBatchQueue((q) => q.map((x) => (x.id === item.id ? { ...x, status: 'error', errorMsg: err.message } : x)))
@@ -150,15 +173,18 @@ export default function App() {
   const handleSelectBatchItem = (item) => {
     if (item.status === 'done' && item.result) {
       setSourceFilename(item.name)
-      applyResult(item.result)
+      applyResult(item.result, true) // finalizes the previous item's clock and starts this one's
     } else if (item.status === 'rejected') {
+      finalizeReview() // switching between batch items ends the previous item's review clock
       setSourceFilename(item.name)
       setQuality(item.quality)
       setStatus('needs_recapture')
+      setReviewTimer({ predictionId: item.predictionId, shownAt: Date.now() })
     }
   }
 
   const handleSelectHistory = async (id) => {
+    finalizeReview() // navigating to an old record ends whatever live review was in progress; re-opening history itself is never timed (not a fresh result)
     try {
       const row = await fetchHistoryDetail(id)
       setSourceFilename(row.source_filename)
@@ -201,6 +227,7 @@ export default function App() {
   // Deliberately does NOT touch matlabStatus/auth/view -- only the
   // in-progress-analysis state that "start a new one" actually refers to.
   const handleReset = () => {
+    finalizeReview() // an explicit "Reset & start new" is the clearest possible "I'm done reviewing this" signal
     setStatus('idle')
     setResult(null)
     setQuality(null)
@@ -212,6 +239,7 @@ export default function App() {
   const hasActiveAnalysis = status === 'done' || status === 'needs_recapture' || status === 'error' || batchQueue.length > 0
 
   const handleLogout = async () => {
+    finalizeReview()
     await logout()
     setOperator(null)
     setAuthStatus('out')

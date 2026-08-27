@@ -39,6 +39,14 @@ slprj/
 *.slxc
 *.asv
 
+# importNetworkFromONNX auto-generates a MATLAB "+<network_name>" package
+# of custom layer classes (e.g. ReduceMeanLayer*.m) for ONNX ops without a
+# direct built-in layer equivalent, written to whatever the current folder
+# is at import time -- codegen output, not hand-authored source, and
+# regenerated automatically the next time predictGradeMATLAB.m /
+# validateONNXAgainstPython.m imports the model.
+matlab/**/+best_model/
+
 # --- OS junk ---
 .DS_Store
 Thumbs.db

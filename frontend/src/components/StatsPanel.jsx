@@ -114,6 +114,32 @@ export default function StatsPanel() {
         </div>
       </div>
 
+      <div className="rounded-xl border border-scope-line bg-white/90 px-4 py-3 mb-6">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-scope-text/40 mb-1">
+          Review time — measured, not assumed
+        </p>
+        {real.review_time.n > 0 ? (
+          <>
+            <p className="font-body text-sm text-scope-text/80">
+              Median <span className="font-medium text-scope-text">{real.review_time.median_seconds.toFixed(1)}s</span> per
+              result (p90 {real.review_time.p90_seconds.toFixed(1)}s) — the SIH brief's own target is{' '}
+              <span className="font-medium text-scope-text">{sim.review_time_seconds}s</span>.
+            </p>
+            <p className="font-body text-[11px] text-scope-text/40 mt-2 pt-2 border-t border-scope-text/10">
+              Based on {real.review_time.n} timed result{real.review_time.n === 1 ? '' : 's'} — real elapsed time from result
+              shown to the operator moving on, but the operator is whoever is using this app, not necessarily a licensed
+              ophthalmologist. Real instrumentation, not a clinical timing study.
+            </p>
+          </>
+        ) : (
+          <p className="font-body text-sm text-scope-text/50">
+            No timed reviews yet — this fills in automatically as results are reviewed and dismissed (e.g. via "Reset &amp;
+            start new"). Until then, the Simulink model's {sim.review_time_seconds}s figure is an assumption from the SIH
+            brief, not a measurement.
+          </p>
+        )}
+      </div>
+
       {real.rejected > 0 && (
         <div className="rounded-xl border border-scope-line bg-white/90 px-4 py-3 mb-6">
           <p className="font-mono text-[11px] uppercase tracking-widest text-scope-text/40 mb-3">

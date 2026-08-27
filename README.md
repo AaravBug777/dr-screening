@@ -568,3 +568,34 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
 - Grad-CAM shows *where* the model looked, not proof the reasoning is
   clinically correct — useful for sanity-checking, not a formal explainability
   guarantee.
+
+## Future work (deliberately deferred, not forgotten)
+
+Three items are explicitly scoped OUT of this Round 1 submission — a
+scoping decision, not an oversight, made once each item's own real cost
+(mostly wall-clock compute or waiting on an external access grant) was
+weighed against Round 1's actual deadline:
+
+- **DDR-scale ablation validation** — the integration ablation's
+  headline result (the fitted combiner beating DL-alone, see
+  `matlab/README.md`'s "Ablation" section) is real but tested on only
+  n=103 (the official IDRiD test set). A ~1,500-2,500-image subsample of
+  the DDR dataset (~10,000 images, freely downloadable, no signed
+  agreement needed unlike FGADR) would give ~15-25x more test data and
+  materially strengthen confidence that the result isn't small-sample
+  noise — estimated at ~2-3 hours of compute (Python TTA inference +
+  MATLAB structural/radiomics extraction), plus an unverified amount of
+  time to actually download DDR from its Google Drive/Baidu Drive hosting.
+- **Neovascularization ground-truth expansion via FGADR** — the current
+  NV validation sits at n=5 positive cases (`matlab/segmentation/README.md`'s
+  "Neovascularization" section), the genuine ceiling of what MAPLES-DR
+  provides against this project's already-downloaded Messidor-2 subset.
+  FGADR (1,842 pixel-level annotated images, including a real NV class)
+  would meaningfully expand this — access has been requested but not yet
+  granted (a signed research-use agreement + manual approval, not an
+  instant download).
+- **Mild-grade data and longer training** — the DR grading model already
+  clears the brief's sensitivity/specificity targets (92.05%/87.43%), so
+  this isn't blocking brief alignment, just general model quality/class
+  balance on the hardest-to-distinguish grade. Deferred earliest in this
+  project's timeline, still the lowest priority of the three.

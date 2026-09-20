@@ -204,6 +204,82 @@ contract below), and calibrating that grader's own referable decision
 against real external data. This ablation result now stands ALONGSIDE
 that story as real evidence too, not instead of it.
 
+### DDR-scale validation: a third, independent dataset (n=2,000)
+
+The n=103 result above answers "does this hold on IDRiD's official test
+set" — a real question, but a small one. DDR (Li et al., 2019 — a
+different real-world source than both IDRiD and Messidor-2: different
+clinics/cameras/population, downloaded via a well-established Kaggle
+mirror, `mariaherrerot/ddrdataset`) gives an independent, much larger
+check. A stratified sample of 2,000 of its 12,522 grading images (capped
+for MATLAB extraction runtime, not data scarcity — the full set would
+take several hours; 2,000 is already ~19x the IDRiD test set) was run
+through the EXACT SAME pipeline: the already-fit (D) combiner and
+already-chosen (A)/(B) thresholds from the calibration above, applied
+without refitting anything (`training/predict_ddr_referable.py`,
+`tests/extractDDRStructuralFeatures.m`, both scripts referenced from
+`tests/compareIntegratedVsSingleTechnique.m`'s own DDR section).
+
+| Technique | Sens | Spec | Acc |
+|---|---|---|---|
+| (A) DL-alone (Python, TTA) | 81.4% | 96.7% | **89.8%** |
+| (B) MATLAB structural-alone | **6.7%** | 98.3% | 57.1% |
+| (C) Integrated, naive average | 34.5% | 99.5% | 70.3% |
+| (D) Integrated, fitted combiner | 73.0% | 98.6% | 87.1% |
+
+**Read this honestly: at this scale, the integration result does NOT
+hold.** (D) does not beat (A) here — DL-alone is both more sensitive
+(81.4% vs 73.0%) and more accurate (89.8% vs 87.1%) on this independent
+dataset. This is the opposite conclusion from the n=103 IDRiD result
+above, and reporting it plainly (not burying it under the more flattering
+smaller-n result) is the same discipline this project has applied to
+every other honestly-negative finding (NV detection, the MA/exudate/
+hemorrhage Dice ceiling, etc.).
+
+**Diagnosed, not just reported.** (B)'s sensitivity collapses to 6.7% —
+essentially failing to flag most true-referable DDR images at all, while
+still holding 98.3% specificity, the signature of a classifier that's
+defaulted to "not referable" almost universally on this population. A
+quick, concrete check explains why: this Kaggle mirror's DDR images are
+**512×512px**, already downsampled at the source, versus IDRiD's native
+**4288×2848px** — roughly an 8.4x reduction in linear resolution. This
+project's classical segmentation pipeline's working resolutions
+(`MaxWorkingDim=640`, `LesionMaxWorkingDim=1600` — see
+`segmentation/README.md`'s own discussion of why microaneurysms
+specifically need the higher of the two) were calibrated assuming
+meaningfully higher-resolution input to downscale FROM; every resize call
+in this pipeline only downscales when the source is LARGER than the
+target (`if max(h0,w0) > opts.MaxWorkingDim`), never upscales a smaller
+source. At 512×512 input, lesion detection therefore runs at native
+512×512 instead of its calibrated 1600px working resolution — fine
+lesion structures (microaneurysms especially, already documented
+elsewhere in this project as needing high working resolution to survive
+smoothing/morphology at all) are effectively destroyed before the
+classical detectors ever see them. The DL grader, by contrast, is far
+more resolution-robust by construction (Ben Graham preprocessing
+normalizes to a fixed, much smaller network input regardless of source
+resolution) — consistent with (A)'s accuracy on DDR (89.8%) actually
+EXCEEDING its IDRiD-test accuracy (81.6%), while (B) fell apart.
+
+**What this changes, honestly:** the brief's "integrated pipeline
+outperforms any single technique" claim is real and measured on IDRiD's
+official test set, but is NOT a universal property of this combiner —
+it depends on the classical structural features still carrying signal at
+the input resolution actually available, a condition this specific
+public DDR mirror violates. This is a genuine, disclosed limitation of
+the current structural-feature pipeline (a resolution-dependence never
+previously stress-tested against a lower-resolution real-world source),
+not a data-source implementation bug or an integration-methodology flaw
+— the combiner itself, the calibration discipline, and the DL grader all
+behaved exactly as designed; the input DDR mirror simply violates an
+assumption (meaningfully-higher-than-640/1600px native resolution) this
+classical pipeline has always implicitly depended on. A fixable direction
+for future work: either source a higher-resolution DDR release, or make
+the classical detectors resolution-aware (flag/downweight structural
+features when native resolution falls below their calibrated working
+size) — neither attempted here, reported as the honest next step rather
+than silently worked around.
+
 ## Python backend integration
 
 `analyzeForApp.m` is the single entry point the running app actually calls

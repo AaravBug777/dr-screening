@@ -124,6 +124,53 @@ end
 fprintf('Reminder: (C)''s naive average result above is intentionally kept alongside (D) to show why the fitting step in (D) matters --\n');
 fprintf('not every "integration" of two techniques helps; an untuned combination can lose sensitivity relative to the better single technique.\n');
 
+% --- DDR: a THIRD, fully independent held-out evaluation ---
+% Everything above (thresholds, the structural classifier, the combiner
+% fit at (D)) is trained/calibrated on IDRiD + Messidor-2 only. DDR (a
+% different real-world source -- different clinics/cameras than both) was
+% never touched by any of it -- see training/predict_ddr_referable.py and
+% extractDDRStructuralFeatures.m for how this 2000-image stratified
+% sample was produced. This section only APPLIES the already-fit (D)
+% combiner and already-chosen (A)/(B) thresholds to DDR; nothing here
+% refits anything, preserving the calibrate-then-held-out-test discipline
+% this whole ablation is built on. Optional: skipped with a message (not
+% an error) if the DDR extraction hasn't been run yet, since it's an
+% addition on top of the base IDRiD ablation above, not a requirement for
+% it to run.
+dlDDRPath = fullfile(outputsDir, 'ddr_referable_predictions.json');
+structDDRPath = fullfile(setupPathsRoot, 'structural_features_ddr.mat');
+if isfile(dlDDRPath) && isfile(structDDRPath)
+    [probA_ddr, probB_ddr, trueReferable_ddr, ~] = loadAligned(dlDDRPath, structDDRPath, netData);
+    nDDR = numel(trueReferable_ddr);
+
+    probC_ddr = 0.5 * probA_ddr + 0.5 * probB_ddr;
+    probD_ddr = predict(combinerModel, table(probA_ddr, probB_ddr, 'VariableNames', {'dlProb', 'matlabProb'}));
+
+    [sensA_d, specA_d, accA_d] = evalAt(probA_ddr, 0.27, trueReferable_ddr);
+    [sensB_d, specB_d, accB_d] = evalAt(probB_ddr, 0.5, trueReferable_ddr);
+    [sensC_d, specC_d, accC_d] = evalAt(probC_ddr, 0.5, trueReferable_ddr);
+    [sensD_d, specD_d, accD_d] = evalAt(probD_ddr, 0.5, trueReferable_ddr);
+
+    fprintf('\n=== DDR: a third, fully independent dataset (n=%d, stratified sample, never used to fit anything above) ===\n', nDDR);
+    fprintf('%-38s %10s %10s %10s\n', 'Technique', 'Sens', 'Spec', 'Acc');
+    fprintf('%-38s %9.1f%% %9.1f%% %9.1f%%\n', '(A) DL-alone (Python)', 100*sensA_d, 100*specA_d, 100*accA_d);
+    fprintf('%-38s %9.1f%% %9.1f%% %9.1f%%\n', '(B) MATLAB structural-alone', 100*sensB_d, 100*specB_d, 100*accB_d);
+    fprintf('%-38s %9.1f%% %9.1f%% %9.1f%%\n', '(C) Integrated, naive average', 100*sensC_d, 100*specC_d, 100*accC_d);
+    fprintf('%-38s %9.1f%% %9.1f%% %9.1f%%\n', '(D) Integrated, fitted combiner', 100*sensD_d, 100*specD_d, 100*accD_d);
+
+    if accD_d >= accA_d && accD_d >= accB_d
+        fprintf('\nRESULT: the integrated combiner (D), fit only on IDRiD+Messidor-2, ALSO matches or exceeds both single\n');
+        fprintf('techniques on this independent third dataset (n=%d) -- real evidence the integration finding generalizes,\n', nDDR);
+        fprintf('not an artifact of the original 103-image test set.\n');
+    else
+        fprintf('\nRESULT: on this third, independent dataset, (D) does NOT clearly beat the best single technique -- report\n');
+        fprintf('this honestly rather than only citing the smaller IDRiD result above.\n');
+    end
+else
+    fprintf('\n(DDR third-dataset evaluation skipped -- run training/predict_ddr_referable.py and\n');
+    fprintf('tests/extractDDRStructuralFeatures.m first to produce %s and %s.)\n', dlDDRPath, structDDRPath);
+end
+
 function [probA, probB, trueReferable, commonNames] = loadAligned(dlPath, structPath, netData)
 dlJson = jsondecode(fileread(dlPath));
 dlPreds = dlJson.predictions;

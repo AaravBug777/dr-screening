@@ -645,7 +645,22 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
   story than the data supports. The stronger, already-evidenced form of
   "integration helping" in this project remains the quality-gate-before-
   grading + calibration story above; this ablation result now stands
-  alongside it, not instead of it.
+  alongside it, not instead of it. **A follow-up DDR-scale check (n=2,000,
+  a third independent dataset, different clinics/cameras than both IDRiD
+  and Messidor-2) complicates this, honestly: the integration result does
+  NOT hold at this scale** - DL-alone (89.8% accuracy) beats the fitted
+  combiner (87.1%) there, because the MATLAB structural classifier's
+  sensitivity collapses to 6.7% on this dataset. Diagnosed, not just
+  reported: this specific DDR mirror's images are pre-downsampled to
+  512x512px (vs IDRiD's native 4288x2848px), well below the classical
+  pipeline's calibrated working resolutions (640px/1600px) - since every
+  resize in this pipeline only ever downscales, never upscales, lesion
+  detection runs at native 512x512 instead of its calibrated resolution,
+  destroying the fine structure it depends on, while the DL grader (far
+  more resolution-robust by construction) is unaffected. A genuine,
+  disclosed limitation of the structural pipeline's resolution
+  assumptions, not a bug in the combiner or the ablation methodology -
+  full diagnosis in `matlab/README.md`'s "DDR-scale validation" section.
 - **Low-resolution/re-sourced images can still fool the grader - now caught
   before grading, but worth knowing this failure mode exists.** A real
   user-submitted test with a 480x432px image sourced from a published paper
@@ -672,21 +687,14 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
 
 ## Future work (deliberately deferred, not forgotten)
 
-Three items are explicitly scoped OUT of this Round 1 submission - a
+Two items are explicitly scoped OUT of this Round 1 submission - a
 scoping decision, not an oversight, made once each item's own real cost
-(mostly wall-clock compute or waiting on an external access grant) was
-weighed against Round 1's actual deadline:
+(mostly waiting on an external access grant) was weighed against Round 1's
+actual deadline. (A third, DDR-scale ablation validation, was originally
+deferred here too but was later pulled back into scope and completed -
+see `matlab/README.md`'s "DDR-scale validation" section for that honest,
+not-uniformly-flattering result.)
 
-- **DDR-scale ablation validation** - the integration ablation's
-  headline result (the fitted combiner beating DL-alone, see
-  `matlab/README.md`'s "Ablation" section) is real but tested on only
-  n=103 (the official IDRiD test set). A ~1,500-2,500-image subsample of
-  the DDR dataset (~10,000 images, freely downloadable, no signed
-  agreement needed unlike FGADR) would give ~15-25x more test data and
-  materially strengthen confidence that the result isn't small-sample
-  noise - estimated at ~2-3 hours of compute (Python TTA inference +
-  MATLAB structural/radiomics extraction), plus an unverified amount of
-  time to actually download DDR from its Google Drive/Baidu Drive hosting.
 - **Neovascularization ground-truth expansion via FGADR** - the current
   NV validation sits at n=5 positive cases (`matlab/segmentation/README.md`'s
   "Neovascularization" section), the genuine ceiling of what MAPLES-DR

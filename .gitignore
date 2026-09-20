@@ -39,6 +39,11 @@ slprj/
 *.slxc
 *.asv
 
+# Resumability checkpoints for long-running MATLAB batch scripts --
+# regenerable by rerunning the script, not a final artifact (the trained
+# classifier itself, e.g. maCandidateClassifier.mat, IS committed).
+matlab/tests/*_checkpoint.mat
+
 # importNetworkFromONNX auto-generates a MATLAB "+<network_name>" package
 # of custom layer classes (e.g. ReduceMeanLayer*.m) for ONNX ops without a
 # direct built-in layer equivalent, written to whatever the current folder

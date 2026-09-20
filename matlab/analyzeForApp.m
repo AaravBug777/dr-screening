@@ -72,6 +72,7 @@ foveaInfo = localizeFovea(imgForSeg, odInfo, segOpts);
 
 [maMask, maInfo] = detectMicroaneurysms(imgForSeg, segOpts);
 [exMask, exInfo] = detectHardExudates(imgForSeg, segOpts);
+[seMask, seInfo] = detectSoftExudates(imgForSeg, segOpts, exMask);
 [heMask, heInfo] = detectHemorrhages(imgForSeg, segOpts);
 
 seg = struct();
@@ -91,9 +92,11 @@ end
 seg.lesionWorkingSize = size(maMask);
 seg.maMask = maMask;
 seg.exudateMask = exMask;
+seg.softExudateMask = seMask;
 seg.hemorrhageMask = heMask;
 seg.maCount = maInfo.count;
 seg.exudateCount = exInfo.count;
+seg.softExudateCount = seInfo.count;
 seg.hemorrhageCount = heInfo.count;
 seg.hemorrhageDotBlotCount = heInfo.dotBlotCount;
 seg.hemorrhageFlameCount = heInfo.flameCount;

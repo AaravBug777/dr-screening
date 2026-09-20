@@ -30,7 +30,7 @@ opts.MaxWorkingDim = 640; % consistent with quality/defaultQualityConfig.m -- an
 % sitting a bit under that band is expected).
 opts.VesselThicknessRange = [1 8]; % pixel width range fibermetric looks for -- NOT yet independently tuned (only the threshold below was swept); a thickness-range sweep is a plausible next improvement
 opts.VesselThresholdMethod = 'percentile'; % 'otsu' (too conservative, see above) or 'percentile'
-opts.VesselThresholdPercentile = 88; % keep the top ~12% of in-FOV pixels by vesselness rank; swept against DRIVE, see above
+opts.VesselThresholdPercentile = 86; % keep the top ~14% of in-FOV pixels by vesselness rank. Was 88 -- lowered after diagnoseVesselMAPLESGap.m found the real cause of a cross-dataset gap (MAPLES-DR sens 64.2%->51.8%): 76% of MAPLES-DR's annotated vessel pixels are the thinnest (1-2px half-width) category, caught by the old threshold only 38.6% of the time vs 91.0%/88.8% for medium-width vessels. tuneVesselThresholdForThinVessels.m swept this against BOTH DRIVE and MAPLES-DR together (never tune against only the dataset that motivated the change -- the OD-mislocalization fix regressed everything else the first time that discipline was skipped): at 86, DRIVE Dice barely moves (0.673->0.672) while MAPLES-DR Dice improves 0.594->0.645 and thin-vessel sensitivity rises 38.6%->48.3%. Lower values (84/82/80) give more MAPLES-DR gain but start costing DRIVE for real (Dice down to 0.653/0.625/0.592) -- 86 was chosen as the point where the DRIVE cost is still negligible, not the point of maximum MAPLES-DR gain.
 opts.VesselMinObjectArea = 15; % bwareaopen cleanup, in pixels at working resolution
 
 % ---- Optic disc localization ----
@@ -93,6 +93,29 @@ opts.LesionVesselExclusionMarginPx = 6; % dilation radius, in LesionMaxWorkingDi
 opts.ExudateTophatRadius = 12; % structuring element radius, in LesionMaxWorkingDim pixels
 opts.ExudateThresholdPercentile = 97; % keep the top (100-X)% of in-FOV top-hat response by rank
 opts.ExudateMinAreaPx = 8; % bwareaopen cleanup, in LesionMaxWorkingDim pixels
+
+% Soft exudates (cotton wool spots): same white-top-hat family as hard
+% exudates, but clinically these are larger, paler, more diffuse
+% nerve-fibre-layer infarcts with ill-defined borders rather than small
+% sharp lipid deposits -- a larger structuring element (catches the
+% bigger, blurrier blob shape instead of fine texture) and a larger
+% minimum area (rejects small sharp things more likely to be mis-flagged
+% hard exudates). Radius/percentile swept (tuneSoftExudateParams.m) over
+% {20,30,40} x {94,96,98} against IDRiD's Soft Exudate ground truth (26 of
+% 54 training images have one) AND MAPLES-DR's CottonWoolSpots category
+% (162 matched images) together -- 20/94 won clearly on lesion-level hit
+% rate on BOTH (86.2% IDRiD, 34.5% MAPLES-DR), not just one. Read the
+% MAPLES-DR number honestly: this detector's candidate-generation is
+% usable on IDRiD but doesn't yet generalize nearly as well to MAPLES-DR
+% (34.5% vs 86.2%) -- a real, disclosed limitation, not smoothed over.
+% Pixel-level Dice is weak across the whole grid (0.066-0.084 IDRiD,
+% 0.004-0.006 MAPLES-DR) -- consistent with every other lesion detector in
+% this module (see "Lesion detection results" below), not a bug specific
+% to this one. MinAreaPx was not swept in this pass (a plausible further
+% improvement).
+opts.SoftExudateTophatRadius = 20;
+opts.SoftExudateThresholdPercentile = 94;
+opts.SoftExudateMinAreaPx = 40;
 
 % Hemorrhages: black top-hat (dark blobs against local background), plus
 % shape filtering since imperfect vessel exclusion can leave elongated

@@ -334,6 +334,12 @@ async def predict(file: UploadFile = File(...), operator: dict = Depends(auth.re
             "fovea_found": bool(seg["foveaFound"]),
             "microaneurysm_candidates": int(seg["maCount"]),
             "exudate_candidates": int(seg["exudateCount"]),
+            # Soft exudates (cotton wool spots): a new detector, just built --
+            # kept in its own namespace like nv_ below until it has real
+            # validated numbers (see matlab/segmentation/README.md once
+            # tuneSoftExudateParams.m reports them), not mixed into the
+            # already-validated hard-exudate count above.
+            "soft_exudate_candidates": int(seg["softExudateCount"]),
             "hemorrhage_candidates": int(seg["hemorrhageCount"]),
             "hemorrhage_dot_blot_candidates": int(seg["hemorrhageDotBlotCount"]),
             "hemorrhage_flame_candidates": int(seg["hemorrhageFlameCount"]),

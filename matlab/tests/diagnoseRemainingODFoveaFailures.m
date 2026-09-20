@@ -23,12 +23,14 @@ run(fullfile(setupPathsRoot, '..', 'setupPaths.m'));
 idridDir = fullfile(setupPathsRoot, '..', '..', 'training', 'data', 'idrid');
 imgDir = fullfile(idridDir, 'C. Localization', '1. Original Images', 'a. Training Set');
 odCsvPath = fullfile(idridDir, 'C. Localization', '2. Groundtruths', '1. Optic Disc Center Location', 'a. IDRiD_OD_Center_Training Set_Markups.csv');
+foveaCsvPath = fullfile(idridDir, 'C. Localization', '2. Groundtruths', '2. Fovea Center Location', 'IDRiD_Fovea_Center_Training Set_Markups.csv');
 odTable = readtable(odCsvPath);
+foveaTable = readtable(foveaCsvPath);
 
 opts = defaultSegmentationConfig();
 n = height(odTable);
 
-errDiam = nan(n,1); odConf = nan(n,1); contrast = nan(n,1);
+odErrDiam = nan(n,1); foveaErrDiam = nan(n,1); odConf = nan(n,1); contrast = nan(n,1);
 vesselDensity = nan(n,1); brightness = nan(n,1); fovFrac = nan(n,1);
 
 tic;
@@ -48,7 +50,19 @@ for k = 1:n
     odInfo = localizeOpticDisc(img, vesselMask, opts);
     predOD = odInfo.center / scale;
     odDiameterNative = (odInfo.radius * 2) / scale;
-    errDiam(k) = hypot(predOD(1)-trueOD(1), predOD(2)-trueOD(2)) / odDiameterNative;
+    odErrDiam(k) = hypot(predOD(1)-trueOD(1), predOD(2)-trueOD(2)) / odDiameterNative;
+
+    % Production behavior (matches analyzeForApp.m): fovea search WITH the
+    % vessel-aware avoidance term, not the darkness-only fallback.
+    foveaRow = strcmp(foveaTable.ImageNo, imgId);
+    trueFovea = [foveaTable.X_Coordinate(foveaRow), foveaTable.Y_Coordinate(foveaRow)];
+    if ~isempty(trueFovea)
+        foveaInfo = localizeFovea(img, odInfo, opts, vesselMask);
+        if foveaInfo.found
+            predFovea = foveaInfo.center / scale;
+            foveaErrDiam(k) = hypot(predFovea(1)-trueFovea(1), predFovea(2)-trueFovea(2)) / odDiameterNative;
+        end
+    end
 
     odConf(k) = odInfo.confidence;
     vesselDensity(k) = vesselInfo.vesselDensity;
@@ -61,13 +75,23 @@ for k = 1:n
     if mod(k, 50) == 0, fprintf('  %d/%d (%.1f s elapsed)\n', k, n, toc); end
 end
 
+features = {'odConf', odConf; 'contrast', contrast; 'vesselDensity', vesselDensity; ...
+    'brightness', brightness; 'fovFrac', fovFrac};
+
+runDiagnostic('OPTIC DISC', odErrDiam, features);
+runDiagnostic('FOVEA (vessel-aware, production)', foveaErrDiam, features);
+
+fprintf('\nInterpretation: a significant (p<0.05) feature is a real, quantified candidate\n');
+fprintf('explanation for the remaining failures -- worth diagnosing further with actual\n');
+fprintf('failure images, the way the original OD bug was chased down. A feature that is\n');
+fprintf('NOT significant is honestly ruled out, not left as an unexamined guess.\n');
+
+function runDiagnostic(label, errDiam, features)
 valid = ~isnan(errDiam);
 isFail = valid & errDiam >= 1;
 isSuccess = valid & errDiam < 1;
-fprintf('\n%d failures / %d total (%.1f%%)\n\n', nnz(isFail), nnz(valid), 100*nnz(isFail)/nnz(valid));
-
-features = {'odConf', odConf; 'contrast', contrast; 'vesselDensity', vesselDensity; ...
-    'brightness', brightness; 'fovFrac', fovFrac};
+fprintf('\n=== %s ===\n', label);
+fprintf('%d failures / %d total (%.1f%%)\n\n', nnz(isFail), nnz(valid), 100*nnz(isFail)/nnz(valid));
 
 fprintf('%-15s %12s %12s %10s\n', 'Feature', 'FailMedian', 'SuccMedian', 'p (ranksum)');
 for i = 1:size(features,1)
@@ -79,11 +103,7 @@ for i = 1:size(features,1)
     fprintf('%-15s %12.4f %12.4f %10.4f%s\n', name, median(failVals), median(succVals), p, ...
         tern(p < 0.05, '  <-- SIGNIFICANT', ''));
 end
-
-fprintf('\nInterpretation: a significant (p<0.05) feature is a real, quantified candidate\n');
-fprintf('explanation for the remaining failures -- worth diagnosing further with actual\n');
-fprintf('failure images, the way the original OD bug was chased down. A feature that is\n');
-fprintf('NOT significant is honestly ruled out, not left as an unexamined guess.\n');
+end
 
 function s = tern(cond, a, b)
 if cond, s = a; else, s = b; end

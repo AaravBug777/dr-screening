@@ -577,7 +577,19 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
   comparison isolates the fovea logic itself - a clean win on both
   datasets, no trade-off to weigh, unlike most retunes in this module. Full
   tables and methodology for all of the above in
-  `matlab/segmentation/README.md`.
+  `matlab/segmentation/README.md`. A follow-up diagnostic asked whether the
+  remaining ~11% OD / ~14% fovea failure tails share a common,
+  not-yet-fixed cause (`matlab/tests/diagnoseRemainingODFoveaFailures.m`,
+  same ranksum hypothesis-testing discipline as the original misdetection
+  diagnosis): the detector's own confidence score is the clearest signal
+  (significantly lower on failures for both OD and fovea, p<0.0001) but
+  the gap is modest, not a clean accept/reject boundary; image contrast
+  and FOV fraction are also significant, mildly counter-intuitively (HIGHER
+  contrast and a LARGER in-frame FOV fraction both associate with more
+  failures); vessel density does not discriminate at all. No single
+  dominant, fixable cause like the Phase 3 tortuosity case - reported
+  honestly as a diffuse combination of image-condition factors, not
+  oversold as solved.
 - Confidence scores shown in the app ARE calibrated (temperature scaling -
   see the calibration history above); the referable-DR decision uses those
   calibrated probabilities against a tuned threshold, not raw argmax. An

@@ -533,7 +533,57 @@ a standing regression check for this, not a one-time validation.
 
 Fovea's remaining ~13.6% (IDRiD) / ~5% (MAPLES-DR) failure tail, like OD's
 ~11% tail above, hasn't been characterized by failure-mode — see
-`tests/diagnoseRemainingODFoveaFailures.m` for that investigation.
+"Remaining OD/fovea failure diagnostic" below for that investigation.
+
+## Remaining OD/fovea failure diagnostic
+
+The Phase 3 fix above (tortuous-vessel-cluster exclusion) addressed one
+specific, identified OD failure mode; it left 10.9% of IDRiD OD cases and
+13.6% of fovea cases (now measured with the merged vessel-aware scorer,
+production behavior) still failing. `tests/diagnoseRemainingODFoveaFailures.m`
+asks whether the REMAINING failures share a different, not-yet-characterized
+common cause — the same hypothesis-testing discipline as the original
+misdetection diagnosis (four candidate explanations measured and three
+ruled out quantitatively before the real cause was found), applied here to
+five candidate features (`ranksum`, non-parametric — appropriate since
+these are small non-negative/bounded quantities, not obviously Gaussian)
+compared between failure and success cases on the full 413-image IDRiD set:
+
+| Feature | OD fail / success median | OD p | Fovea fail / success median | Fovea p |
+|---|---|---|---|---|
+| OD confidence | 0.897 / 0.982 | **0.0000** | 0.900 / 0.982 | **0.0000** |
+| Image contrast | 0.095 / 0.085 | **0.0006** | 0.094 / 0.085 | **0.0067** |
+| Vessel density | 0.131 / 0.130 | 0.2366 | 0.130 / 0.130 | 0.3719 |
+| Brightness | 0.334 / 0.302 | **0.0092** | 0.317 / 0.303 | 0.1867 |
+| FOV fraction | 0.702 / 0.693 | **0.0001** | 0.698 / 0.693 | **0.0015** |
+
+Read honestly, not oversold. **OD confidence is the clearest, most
+consistent signal**, significant for both OD and fovea failures (fovea
+inherits it since the fovea search anchors off the OD result) — real
+evidence the detector has SOME self-awareness of its own uncertainty, not
+none. But the gap is modest in absolute terms (0.90 vs 0.98, both on a
+0-1ish z-score-derived scale), so this is a soft signal for flagging a
+result as lower-confidence for reviewer attention, not a clean
+accept/reject classifier — consistent with how `odConfidence`/fovea
+`confidence` are already surfaced (unfiltered, as-is) rather than used as
+a hard gate anywhere in this pipeline. **Contrast and FOV fraction are
+also significant on both**, and in a mildly counter-intuitive direction:
+HIGHER local contrast and a LARGER in-frame FOV fraction both associate
+with more failures, not fewer — plausibly because higher-contrast images
+have more competing bright/dark structures (lesions, strong vascular
+arcades) for the convergence/darkness signals to be confused by, and a
+larger FOV fraction means less black background to anchor the FOV-mask-
+relative geometry against. **Vessel density is NOT significant for
+either** — ruled out, not an unexamined guess: local vascular density
+around the candidate location doesn't discriminate failures from
+successes. **Brightness is significant for OD but NOT for fovea** — a
+real, disclosed difference between the two failure populations, not
+unified under one explanation. None of these effect sizes are large
+enough to justify a hard per-image reject rule on their own; the honest
+conclusion is that OD confidence remains the best available (if soft)
+proxy for "this result deserves closer review," and the remaining failure
+tail is a diffuse combination of image-condition factors rather than one
+single dominant, fixable cause the way the Phase 3 tortuosity case was.
 
 ## Lesion detection results (microaneurysms, hard exudates, hemorrhages)
 

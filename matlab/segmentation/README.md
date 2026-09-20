@@ -169,6 +169,42 @@ filter (same reasoning as above — an optional confidence-score threshold
 a reviewer chooses is safer than an app-side default either way), but
 this is the operating point to reach for if that feature is ever built.
 
+**The same classifier design was then mechanically extended to the other
+two lesion types with the identical weak point.** `trainLesionCandidateClassifier.m`
+generalizes `trainCandidateRefinementClassifier.m` (parameterized by
+detector function, ground-truth suffix/folder, and lesion name — the same
+"generic, parameterized" pattern `validateAgainstIDRiDLesion.m` already
+uses), run via `trainExudateHemorrhageClassifiers.m` against the combined
+IDRiD + MAPLES-DR ground truth for hard exudates (137 images) and
+hemorrhages (147 images), same 80/20 image-level split, same RUSBoost
+ensemble, same margin-based threshold sweep (with the same `predict()`-
+matching sanity check the MA sweep needed):
+
+| Lesion | Before (no filtering) | After (default decision) | Recall-preserving (≥90% recall) |
+|---|---|---|---|
+| Microaneurysm (for reference) | 2.6% / 100.0% | 20.7% / 62.7% | margin=-1.659 → 4.8% / 91.4% |
+| Hard exudate | 4.0% / 100.0% | **34.0%** / 66.1% | margin=-1.250 → 9.5% / 90.7% |
+| Hemorrhage | 3.5% / 100.0% | **11.3%** / 59.1% | margin=-1.000 → 5.8% / 91.4% |
+
+(Precision / recall in each cell.) Read honestly: **exudates got the
+strongest lift of all three** — 8.5x precision at the default operating
+point, driven by a genuinely different dominant feature than
+microaneurysms. Feature importance for exudates is dominated by
+**LocalContrast** (0.0072, ~6x the next feature), not Area (which drove
+the MA classifier) — a real, sensible difference: hard exudates are
+identified clinically by their sharp brightness contrast against
+surrounding retina, not primarily by size. Hemorrhages got the weakest
+lift (3.2x precision, still real) — consistent with hemorrhage detection
+already being the weakest of the three lesion types at the raw-detector
+level (46.1% lesion-level hit rate vs. MA's 82.0%/exudate's rising to
+63.7-80.7%, see below), so a noisier candidate pool going in gives the
+classifier less to work with. Both, like the MA classifier, are **not
+wired into `analyzeForApp.m` as hard filters** — same reasoning: an
+optional confidence score for human review is safer than a silent
+app-side cut for a screening tool. Trained classifiers saved
+(`tests/exudateCandidateClassifier.mat`, `tests/hemorrhageCandidateClassifier.mat`)
+for that future use.
+
 **A genuinely new capability, not just a tuning pass: soft exudates
 (cotton wool spots) had NO detector at all before this** — the string
 "soft exudate" only ever appeared in code comments, confirmed by grepping

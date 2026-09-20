@@ -589,7 +589,17 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
   failures); vessel density does not discriminate at all. No single
   dominant, fixable cause like the Phase 3 tortuosity case - reported
   honestly as a diffuse combination of image-condition factors, not
-  oversold as solved.
+  oversold as solved. The per-candidate shape/intensity classifier design
+  built for microaneurysms was also mechanically extended to hard exudates
+  and hemorrhages (`matlab/tests/trainLesionCandidateClassifier.m`,
+  generic/parameterized, same RUSBoost + margin-sweep method): exudates
+  got the strongest lift of the three (precision 4.0%->34.0% at 66.1%
+  recall, driven by LocalContrast rather than Area - a real, clinically
+  sensible difference from microaneurysms), hemorrhages the weakest but
+  still real (3.5%->11.3% at 59.1% recall, consistent with hemorrhages
+  already being the weakest raw detector of the three). Recall-preserving
+  operating points (>=90% recall) exist for both, same as microaneurysms.
+  Neither wired in as a hard filter, for the same clinical-safety reason.
 - Confidence scores shown in the app ARE calibrated (temperature scaling -
   see the calibration history above); the referable-DR decision uses those
   calibrated probabilities against a tuned threshold, not raw argmax. An

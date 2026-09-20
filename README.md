@@ -550,6 +550,34 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
   benchmark — see `matlab/segmentation/README.md`'s "Phase 3" for the full,
   instructive story of a first fix attempt that looked successful but
   regressed everything else, caught before shipping.
+- **A further round of segmentation improvements, same "build → validate
+  against both datasets → only ship real wins" discipline, this time
+  explicitly excluding hemorrhages/NV (already-diagnosed real ceilings,
+  deferred):** microaneurysm and hemorrhage detection got the same
+  two-dataset threshold retune exudates and vessels already had
+  (`MAThresholdPercentile` 98→92, `HemorrhageThresholdPercentile` 97→92)
+  — a genuine trade-off (pixel Dice down, lesion-level hit rate up
+  substantially on both IDRiD and MAPLES-DR, e.g. MA hit rate 81.9%→98.0%
+  IDRiD / 87.5%→96.9% MAPLES-DR), taken deliberately for the reason this
+  project has consistently argued matters more for a human-in-the-loop
+  candidate generator. Soft exudates' minimum-candidate-area parameter
+  (`SoftExudateMinAreaPx`, previously untested) was swept and lowered
+  40→20 — a rare near-free-lunch result, Dice flat while hit rate rises
+  monotonically (IDRiD 70.5%→83.8%). Soft-exudate candidate counts, wired
+  into the backend earlier but never surfaced, are now actually shown in
+  the app's result narrative (`frontend/src/content.js`). And fovea
+  localization gained a genuinely new, independent signal: the foveal
+  avascular zone (a real anatomical fact — the fovea sits in a vessel-free
+  region, distinct from pure pixel darkness) is now folded into
+  `localizeFovea.m`'s scoring via an optional vessel-density term, backward
+  compatible with existing callers. Validated on IDRiD (fovea markups,
+  84.7%→86.4% success) AND MAPLES-DR's Macula category (a previously
+  unused annotation category, 93.2%→95.0%) with vessel/OD detection run
+  once per image and shared identically between both scoring modes so the
+  comparison isolates the fovea logic itself — a clean win on both
+  datasets, no trade-off to weigh, unlike most retunes in this module. Full
+  tables and methodology for all of the above in
+  `matlab/segmentation/README.md`.
 - Confidence scores shown in the app ARE calibrated (temperature scaling —
   see the calibration history above); the referable-DR decision uses those
   calibrated probabilities against a tuned threshold, not raw argmax. An

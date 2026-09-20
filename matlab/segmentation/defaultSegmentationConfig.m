@@ -62,6 +62,13 @@ opts.ODTortuousClusterMinTortuosity = 2.1; % DELIBERATELY NOT the same as NVTort
 opts.FoveaSearchRadiusODMultiples = [1.5, 3.5]; % annulus search range, in OD diameters, from the OD center -- standard clinical landmark range (fovea sits ~2-3 OD diameters temporal to the disc)
 opts.FoveaMinBandSizeFraction = 0.4; % a side's search band must have at least this fraction of the other side's pixel count to be considered a valid candidate at all. Guards against an off-center OD pushing one side's band up against the FOV boundary, leaving it small and its z-score statistic unreliable/inflated by chance -- found via a debug case where a 899-pixel band beat a 5579-pixel band on a noisier z-score alone. See localizeFovea.m.
 
+% Experimental (localizeFoveaVesselAware.m only, NOT the production
+% localizeFovea.m): weight on local vessel density in the combined
+% darkness+vessel-avoidance candidate score. Provisional value before
+% tuning -- see tests/validateFoveaVesselAware.m for whether this signal
+% helps at all before it's worth tuning further.
+opts.FoveaVesselAvoidanceWeight = 0.5;
+
 % ---- Lesion detection (microaneurysms, hemorrhages, hard exudates) ----
 % Deliberately a MUCH higher working resolution than MaxWorkingDim=640 used
 % above. Measured real IDRiD lesion sizes at native resolution
@@ -131,17 +138,28 @@ opts.ExudateMinAreaPx = 8; % bwareaopen cleanup, in LesionMaxWorkingDim pixels
 % Pixel-level Dice is weak across the whole grid (0.066-0.084 IDRiD,
 % 0.004-0.006 MAPLES-DR) -- consistent with every other lesion detector in
 % this module (see "Lesion detection results" below), not a bug specific
-% to this one. MinAreaPx was not swept in this pass (a plausible further
-% improvement).
+% to this one.
 opts.SoftExudateTophatRadius = 20;
 opts.SoftExudateThresholdPercentile = 94;
-opts.SoftExudateMinAreaPx = 40;
+opts.SoftExudateMinAreaPx = 20; % Was 40 -- tests/tuneSoftExudateMinArea.m swept {20,40,60,80,120} against
+    % both datasets: a rare NEAR-FREE-LUNCH result, unlike the other threshold retunes
+    % in this file. Dice stays essentially FLAT across the whole range (0.066-0.068
+    % IDRiD, 0.004 MAPLES-DR, no real trend) while lesion-level hit rate rises
+    % monotonically as MinAreaPx drops (IDRiD 51.9%->83.8%, MAPLES-DR 17.8%->29.2%
+    % from 120 down to 20) -- smaller minimum area gives real hit-rate gain at
+    % essentially no pixel-accuracy cost, so the lowest value tested was kept.
 
 % Hemorrhages: black top-hat (dark blobs against local background), plus
 % shape filtering since imperfect vessel exclusion can leave elongated
 % fragments that aren't real hemorrhages.
 opts.HemorrhageTophatRadius = 20;
-opts.HemorrhageThresholdPercentile = 97;
+opts.HemorrhageThresholdPercentile = 92; % Was 97 -- tests/tuneMAHemorrhageThresholdTwoDatasets.m applied the same
+    % two-dataset-sweep method that fixed vessels/exudates. Same trade-off shape as
+    % exudates: raising the percentile improves Dice but reduces lesion-level hit rate
+    % on BOTH datasets (97: IDRiD hit=32.8%/MAPLES hit=30.9%; 92: IDRiD hit=42.6%/MAPLES
+    % hit=39.3%). Chosen for hit rate over Dice, same rationale as exudates -- Dice cost
+    % is real but small in absolute terms (IDRiD Dice 0.059->0.056, MAPLES-DR
+    % 0.021->0.016), disclosed not hidden.
 opts.HemorrhageMinAreaPx = 15;
 opts.HemorrhageMaxEccentricity = 0.92; % reject elongated (vessel-fragment-like) candidates; a circle has eccentricity 0
 
@@ -167,7 +185,15 @@ opts.HemorrhageFlameRadialToleranceDeg = 35; % secondary confirmatory signal: a 
 % sit immediately adjacent to vessels.
 opts.MAStructuringElementLength = 9; % linear SE length, in LesionMaxWorkingDim pixels -- longer than the widest vessel cross-section, so a round MA-sized blob can't survive opening at any orientation
 opts.MANumOrientations = 12; % number of linear SE angles swept (0:15:165)
-opts.MAThresholdPercentile = 98;
+opts.MAThresholdPercentile = 92; % Was 98 -- tests/tuneMAHemorrhageThresholdTwoDatasets.m applied the same
+    % two-dataset-sweep method that fixed vessels/exudates. Same trade-off shape:
+    % raising the percentile improves Dice but reduces lesion-level hit rate on BOTH
+    % datasets, and the effect is LARGE here (98: IDRiD hit=81.9%/MAPLES hit=87.5%; 92:
+    % IDRiD hit=98.0%/MAPLES hit=96.9%). Chosen for hit rate -- this project's own
+    % documentation already argues MA recall matters most of all three lesion types
+    % (earliest detectable DR sign), so this retune takes that stated priority at its
+    % word for the deployed default, not just the write-up. Dice cost: IDRiD
+    % 0.076->0.024, MAPLES-DR 0.054->0.024 -- real, disclosed, already weak either way.
 opts.MAMinAreaPx = 3;
 opts.MAMaxAreaPx = 120; % upper bound -- larger round blobs are more likely small hemorrhages than MAs
 

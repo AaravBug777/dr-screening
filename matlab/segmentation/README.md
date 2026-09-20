@@ -12,7 +12,7 @@ only feed it images that passed (or were enhanced to pass) Stage 1.
 |---|---|---|---|
 | Vessel segmentation | sensitivity / specificity / Dice | 69.2% / 94.9% / 0.672 | DRIVE, 20 training images (retuned — see below) |
 | Optic disc localization | success rate (error < 1 OD diameter) | 89.1% | IDRiD, 413 images |
-| Fovea localization | success rate (error < 1 / < 2 OD diameters) | 85.0% / 91.0% | IDRiD, 413 images |
+| Fovea localization | success rate (error < 1 OD diameter) | **86.4%** (was 84.7% darkness-only) | IDRiD, 413 images — vessel-aware scoring, see below |
 
 These are in the range published classical (non-deep-learning) methods report
 on the same benchmarks. See "Validation history" below for how they were
@@ -200,9 +200,31 @@ smoothed over. Pixel-level Dice is weak across the whole grid tested
 (0.066-0.084 IDRiD, 0.004-0.006 MAPLES-DR) — consistent with every other
 lesion detector in this module, not a bug specific to this one. Wired
 into the live pipeline (`analyzeForApp.m`, `backend/main.py`'s
-`soft_exudate_candidates` field) in its own namespace, same pattern as
-neovascularization, since it doesn't yet have the same validation
-confidence as the five original detectors.
+`soft_exudate_candidates` field, and now the frontend's result narrative
+in `frontend/src/content.js`'s `buildResultNarrative` low-confidence
+stat strip alongside hemorrhage type and NV) in its own namespace, same
+pattern as neovascularization, since it doesn't yet have the same
+validation confidence as the five original detectors.
+
+**A previously-untested dimension of this same detector was swept next:
+minimum candidate area, not just structuring-element radius/threshold.**
+`tests/tuneSoftExudateMinArea.m` swept `SoftExudateMinAreaPx` at the
+already-chosen radius=20/pctl=94 against both datasets:
+
+| MinAreaPx | IDRiD SE Dice / hit rate | MAPLES-DR CWS Dice / hit rate |
+|---|---|---|
+| **20 (chosen, was 40)** | 0.066 / **83.8%** | 0.004 / **29.2%** |
+| 40 (previous default) | 0.067 / 70.5% | 0.004 / 27.3% |
+| 60 | 0.068 / 67.4% | 0.004 / 21.8% |
+| 80 | 0.068 / 63.5% | 0.004 / 21.1% |
+| 120 | 0.067 / 51.9% | 0.004 / 17.8% |
+
+A near-free-lunch result: Dice is flat across the entire tested range on
+both datasets (the area filter only ever removes tiny fragments that
+weren't contributing meaningful pixel overlap anyway), while lesion-level
+hit rate rises monotonically as the area floor drops — smaller candidates
+that used to be filtered out were often real, small cotton-wool spots,
+not noise. `SoftExudateMinAreaPx` lowered from 40 to 20.
 
 **Built, and now genuinely validated at the pixel/image level — with an
 honest, weak result, not the "no ground truth exists" gap this used to
@@ -276,7 +298,7 @@ calibration caveat for the full reasoning.
 |---|---|
 | `segmentVessels.m` | Vessel mask via `fibermetric` (multiscale vesselness filter) on the illumination-normalized green channel. |
 | `localizeOpticDisc.m` | OD center/radius from blended vessel-convergence + brightness signals. |
-| `localizeFovea.m` | Fovea center via darkest-region search in the anatomically expected annulus around the OD. |
+| `localizeFovea.m` | Fovea center via darkest-region search in the anatomically expected annulus around the OD, optionally combined with a vessel-density avoidance term (4th, optional `vesselMask` argument) — see "Fovea: a second, independent localization signal" below. |
 | `defaultSegmentationConfig.m` | All thresholds, one place to tune — includes the DRIVE/IDRiD calibration history inline. |
 | `demoSegmentation.m` | Visual montage demo against real APTOS images (OD circle + fovea marker + vessel mask). |
 | `computeLesionExclusionMask.m` | Shared: FOV mask + dilated OD/vessel exclusion mask at lesion working resolution, reusing the already-validated vessel/OD detection at standard resolution. |
@@ -302,7 +324,13 @@ diagnosis behind the Phase 3 OD fix below — kept as a record of what was
 ruled out, not just what worked), `tuneODTortuosityExclusion.m` (the
 threshold sweep that caught attempt 1's regression and found attempt 2's
 fix), `validateAgainstMAPLESNV.m` (real pixel-level NV ground-truth
-validation against MAPLES-DR, see "Neovascularization" above).
+validation against MAPLES-DR, see "Neovascularization" above),
+`tuneMAHemorrhageThresholdTwoDatasets.m` (the combined MA+hemorrhage
+two-dataset threshold sweep above), `tuneSoftExudateMinArea.m` (the
+`SoftExudateMinAreaPx` sweep above), `validateFoveaVesselAware.m` (the
+darkness-only vs. vessel-aware fovea comparison above, kept as a standing
+regression check), `diagnoseRemainingODFoveaFailures.m` (OD/fovea
+failure-mode feature diagnostic).
 
 ## Quick start
 
@@ -455,16 +483,57 @@ anecdote that motivated it.
   (Post the Phase 3 tortuosity-exclusion fix above — numbers before it were
   0.131/89.1%, i.e. unchanged within rounding: the fix corrects a real
   failure case with no net cost to the aggregate.)
-- **Fovea localization** (same run): error 0.072 OD diameters (median), 85.0%
-  success (< 1 OD diameter), 91.0% (< 2 OD diameters).
+- **Fovea localization** (same run, darkness-only, pre-vessel-aware): error
+  0.072 OD diameters (median), 85.0% success (< 1 OD diameter), 91.0%
+  (< 2 OD diameters).
 
 All three sit in the range published classical (non-deep-learning) methods
 report on these exact benchmarks — a defensible, evidenced baseline, not a
 guess. Remaining headroom: `VesselThicknessRange` was never independently
-swept (only the threshold was); the ~11% OD and ~15% fovea failure tails
-haven't been characterized (worth checking whether they cluster on
-particular image conditions, e.g. poor quality that should have been caught
-by Stage 1, or genuine hard cases).
+swept (only the threshold was); the ~11% OD failure tail hasn't been
+characterized (worth checking whether it clusters on particular image
+conditions, e.g. poor quality that should have been caught by Stage 1, or
+genuine hard cases) — see "Fovea: a second, independent localization
+signal" below for the equivalent fovea investigation, which WAS done.
+
+## Fovea: a second, independent localization signal (vessel-aware scoring)
+
+The darkness-only fovea search above has a real, disclosed limitation: a
+hemorrhage or a shadow can be dark without being the fovea. The fovea is
+also anatomically distinct in a second, independent way — it sits inside
+the **foveal avascular zone**, a small region genuinely free of visible
+vessels, a fact pure pixel darkness can't see. `localizeFoveaVesselAware.m`
+was built as a separate experimental function that folds a local
+vessel-density map (already-computed `vesselMask`, no extra detection
+cost) into the darkness score as an avoidance term, then validated against
+TWO independent ground-truth sources with vessel/OD detection run ONCE per
+image and fed identically to both the darkness-only and vessel-aware
+scorers, so any difference is attributable to the fovea logic itself
+(`tests/validateFoveaVesselAware.m`):
+
+| Dataset | Darkness-only | Vessel-aware | n |
+|---|---|---|---|
+| IDRiD (fovea center markups) | 84.7% success (<1 diam) | **86.4%** | 413 |
+| MAPLES-DR Macula (previously unused category) | 93.2% success (<1 diam) | **95.0%** | 161 |
+
+A clean win on both datasets, no Dice-vs-hit-rate trade-off to weigh —
+unlike most retunes in this module. Merged directly into production
+`localizeFovea.m` (rather than kept as a parallel file) as a new, optional
+4th `vesselMask` argument, backward compatible via `nargin` (a caller that
+doesn't pass it still gets the original darkness-only behavior). The
+winning location is chosen from the combined darkness+vessel-avoidance
+map; reported `confidence` still comes from darkness alone, keeping its
+meaning consistent whether or not `vesselMask` was supplied.
+`analyzeForApp.m` now passes its already-computed `vesselMask` into
+`localizeFovea`, so the live app gets the improved 86.4%/95.0% numbers,
+not the 84.7%/93.2% darkness-only baseline. Re-run after the merge to
+confirm the production function reproduces the pre-merge experimental
+numbers exactly (it does) — `tests/validateFoveaVesselAware.m` is kept as
+a standing regression check for this, not a one-time validation.
+
+Fovea's remaining ~13.6% (IDRiD) / ~5% (MAPLES-DR) failure tail, like OD's
+~11% tail above, hasn't been characterized by failure-mode — see
+`tests/diagnoseRemainingODFoveaFailures.m` for that investigation.
 
 ## Lesion detection results (microaneurysms, hard exudates, hemorrhages)
 
@@ -506,6 +575,37 @@ sensitivity/specificity/precision columns in the table above are from
 the OLDER pctl=97 tuning and were not re-measured at 90 (only Dice and
 hit rate were swept) — read the row above as historical tuning record,
 not the current deployed configuration's full metric set.
+
+**Microaneurysms and hemorrhages got the same two-dataset treatment next.**
+`tests/tuneMAHemorrhageThresholdTwoDatasets.m` swept both thresholds
+against IDRiD AND MAPLES-DR together in one combined pass:
+
+| MA Pctl | IDRiD Dice / hit | MAPLES-DR Dice / hit |
+|---|---|---|
+| 92 (chosen, was 98) | 0.024 / **98.0%** | 0.024 / **96.9%** |
+| 94 | 0.032 / 96.2% | 0.030 / 96.2% |
+| 96 | 0.047 / 92.6% | 0.039 / 93.5% |
+| 98 (previous default) | 0.076 / 81.9% | 0.054 / 87.5% |
+
+| Hemorrhage Pctl | IDRiD Dice / hit | MAPLES-DR Dice / hit |
+|---|---|---|
+| 92 (chosen, was 97) | 0.056 / **42.6%** | 0.016 / **39.3%** |
+| 94 | 0.059 / 39.8% | 0.017 / 35.7% |
+| 96 | 0.060 / 36.2% | 0.019 / 31.5% |
+| 97 (previous default) | 0.059 / 32.8% | 0.021 / 30.9% |
+
+Both are genuine trade-offs, not free lunches — Dice falls as the
+threshold drops (more, noisier candidates), while lesion-level hit rate
+rises substantially on both datasets. `MAThresholdPercentile` (98→92) and
+`HemorrhageThresholdPercentile` (97→92) were both lowered, taking the
+hit-rate side of that trade-off deliberately — consistent with this
+module's stated position that lesion-level hit rate is the more
+informative number for a human-in-the-loop candidate generator (see
+below), and consistent with the exudate retune above making the same
+choice. This is most consequential for microaneurysms specifically: MAs
+are the earliest detectable sign of DR, so missing one at candidate-
+generation time means a human reviewer never even gets the chance to
+confirm or reject it.
 
 **Read this honestly, not optimistically.** Pixel-level Dice is weak across
 all three (0.08-0.13) — this is NOT an undertuned threshold. Before

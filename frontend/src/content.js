@@ -43,14 +43,17 @@ export const URGENCY_NOTES = {
 //
 // `stats` vs `lowConfidenceStats`: the segmentation backend validated
 // vessel/OD/fovea/MA/exudate/haemorrhage detection against real ground
-// truth (DRIVE/IDRiD -- see matlab/segmentation/README.md). Haemorrhage
-// TYPE (dot/blot vs flame) and neovascularization candidates carry
+// truth (DRIVE/IDRiD, cross-checked against a second grader, MAPLES-DR --
+// see matlab/segmentation/README.md). Haemorrhage TYPE (dot/blot vs
+// flame), soft exudates, and neovascularization candidates carry
 // materially weaker evidence -- haemorrhage type has no expert-labeled
-// type ground truth to check against, and NV has no lesion-level ground
-// truth at all, only a directional trend check on real PDR-vs-No-DR images
-// (see detectNeovascularization.m's calibration caveat). Kept in a
-// separate, visually distinguished group rather than mixed into the main
-// stat strip so the panel doesn't imply they're equally trustworthy.
+// type ground truth to check against at all; soft exudates are a newer
+// detector that's strong on IDRiD but markedly weaker on MAPLES-DR; NV
+// has no lesion-level ground truth at all, only a directional trend check
+// on real PDR-vs-No-DR images (see detectNeovascularization.m's
+// calibration caveat). Kept in a separate, visually distinguished group
+// rather than mixed into the main stat strip so the panel doesn't imply
+// they're equally trustworthy.
 export function buildResultNarrative(result) {
   const { predicted_label, probabilities, segmentation_summary: seg } = result || {}
   const top = probabilities?.find((p) => p.label === predicted_label)
@@ -70,6 +73,13 @@ export function buildResultNarrative(result) {
     ? [
         { label: 'Dot/blot haemorrhages', value: seg.hemorrhage_dot_blot_candidates },
         { label: 'Flame haemorrhages', value: seg.hemorrhage_flame_candidates },
+        // Soft exudates (cotton wool spots): a genuinely new detector, not
+        // yet at the validation confidence of the main stats above --
+        // strong on IDRiD (86.2% lesion-hit rate) but markedly weaker on
+        // MAPLES-DR (34.5%), see matlab/segmentation/README.md. Grouped
+        // here rather than the main strip for that reason, same as
+        // haemorrhage type and NV.
+        { label: 'Soft exudates (cotton wool spots)', value: seg.soft_exudate_candidates },
         { label: 'Neovascularization (at disc)', value: seg.nvd_candidates },
         { label: 'Neovascularization (elsewhere)', value: seg.nve_candidates },
       ]

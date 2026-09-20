@@ -67,7 +67,7 @@ end
 
 [vesselMask, ~] = segmentVessels(imgForSeg, segOpts);
 odInfo = localizeOpticDisc(imgForSeg, vesselMask, segOpts);
-foveaInfo = localizeFovea(imgForSeg, odInfo, segOpts);
+foveaInfo = localizeFovea(imgForSeg, odInfo, segOpts, vesselMask);
 [nvMask, nvInfo] = detectNeovascularization(imgForSeg, vesselMask, odInfo, segOpts);
 
 [maMask, maInfo] = detectMicroaneurysms(imgForSeg, segOpts);

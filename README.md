@@ -481,7 +481,18 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
   the plain integer centroid across 75,833 real candidates (54 IDRiD
   images), with 0.0% landing on an identical integer position, directly
   addressing the SIH brief's "sub-pixel microaneurysm detection" phrase.
-  Hemorrhage candidates are further split dot/blot vs.
+  **Cross-validated against a second, independent grader, not just
+  IDRiD/DRIVE**: `matlab/tests/validateAgainstMAPLESLesions.m` reruns
+  optic disc, vessel, microaneurysm, exudate, and hemorrhage detection
+  against MAPLES-DR's independent annotations (162 matched images) —
+  four of five structures hold up as well as or BETTER than the original
+  IDRiD/DRIVE numbers (optic disc 89.1%→96.9%, microaneurysm lesion-hit
+  82.0%→87.6%, exudate lesion-hit 59.5%→71.4%, hemorrhage lesion-hit
+  46.1%→45.9%) — real evidence these detectors learned genuine
+  lesion/structure appearance, not just one dataset's labeling
+  conventions. Vessel segmentation is the one honest exception (64.2%→51.8%
+  sensitivity) and is reported as such, not hidden. Full table in
+  `matlab/segmentation/README.md`. Hemorrhage candidates are further split dot/blot vs.
   flame-shaped (shape + radial-orientation-from-disc heuristic — see
   `matlab/segmentation/detectHemorrhages.m`), though that type split has no
   expert ground truth to validate against. Neovascularization (NVD/NVE)

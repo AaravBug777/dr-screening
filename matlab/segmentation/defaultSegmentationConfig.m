@@ -33,6 +33,14 @@ opts.VesselThresholdMethod = 'percentile'; % 'otsu' (too conservative, see above
 opts.VesselThresholdPercentile = 86; % keep the top ~14% of in-FOV pixels by vesselness rank. Was 88 -- lowered after diagnoseVesselMAPLESGap.m found the real cause of a cross-dataset gap (MAPLES-DR sens 64.2%->51.8%): 76% of MAPLES-DR's annotated vessel pixels are the thinnest (1-2px half-width) category, caught by the old threshold only 38.6% of the time vs 91.0%/88.8% for medium-width vessels. tuneVesselThresholdForThinVessels.m swept this against BOTH DRIVE and MAPLES-DR together (never tune against only the dataset that motivated the change -- the OD-mislocalization fix regressed everything else the first time that discipline was skipped): at 86, DRIVE Dice barely moves (0.673->0.672) while MAPLES-DR Dice improves 0.594->0.645 and thin-vessel sensitivity rises 38.6%->48.3%. Lower values (84/82/80) give more MAPLES-DR gain but start costing DRIVE for real (Dice down to 0.653/0.625/0.592) -- 86 was chosen as the point where the DRIVE cost is still negligible, not the point of maximum MAPLES-DR gain.
 opts.VesselMinObjectArea = 15; % bwareaopen cleanup, in pixels at working resolution
 
+% Experimental (segmentVesselsMultiScale.m only, NOT the production
+% segmentVessels.m): narrow, slightly-overlapping bands spanning the same
+% [1 8] range VesselThicknessRange covers, fused by pixelwise max instead
+% of one fibermetric call over the whole range -- see
+% tests/validateVesselMultiScale.m for whether this actually helps before
+% it replaces anything production uses.
+opts.VesselMultiScaleBands = [1 3; 3 5; 5 8];
+
 % ---- Optic disc localization ----
 opts.ODDiameterFraction = 0.18; % OD diameter as a fraction of min(frame height, width) -- typical fundus OD subtends roughly this in a well-cropped image; provisional, needs tuning against IDRiD's OD radius ground truth
 opts.ODBrightnessWeight = 0.5; % blend weight between vessel-density signal (0) and brightness signal (1) when localizing the OD
@@ -91,7 +99,19 @@ opts.LesionVesselExclusionMarginPx = 6; % dilation radius, in LesionMaxWorkingDi
 % generation + a trained classifier on per-region features, a substantially
 % larger undertaking than a single top-hat threshold.
 opts.ExudateTophatRadius = 12; % structuring element radius, in LesionMaxWorkingDim pixels
-opts.ExudateThresholdPercentile = 97; % keep the top (100-X)% of in-FOV top-hat response by rank
+opts.ExudateThresholdPercentile = 90; % keep the top (100-X)% of in-FOV top-hat response by rank. Was 97 --
+    % lowered after applying the SAME two-dataset-sweep method that fixed vessels
+    % (tests/tuneExudateThresholdTwoDatasets.m), swept against IDRiD (n<=54) AND
+    % MAPLES-DR (n<=162) together. Unlike vessels, this is a genuine trade-off, not
+    % a near-free lunch: raising the percentile improves pixel Dice but REDUCES
+    % lesion-level hit rate on BOTH datasets (97: IDRiD Dice=0.106/hit=51.9%,
+    % MAPLES Dice=0.035/hit=64.5%; 90: IDRiD Dice=0.062/hit=63.7%, MAPLES
+    % Dice=0.024/hit=80.7%). Chosen for hit rate, not Dice, matching this
+    % project's established priority (segmentation/README.md: lesion-level
+    % candidate-generation recall is the metric that matters for a
+    % human-in-the-loop review workflow, not pixel-level segmentation
+    % accuracy, which was already weak at every percentile tested) -- real
+    % Dice cost disclosed, not hidden.
 opts.ExudateMinAreaPx = 8; % bwareaopen cleanup, in LesionMaxWorkingDim pixels
 
 % Soft exudates (cotton wool spots): same white-top-hat family as hard

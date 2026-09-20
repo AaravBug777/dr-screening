@@ -34,7 +34,7 @@ categories):
 |---|---|---|---|
 | Optic disc | 89.1% success rate | **96.9%** success rate | Holds up better |
 | Microaneurysms (lesion-level hit rate) | 82.0% | **87.6%** | Holds up better |
-| Exudates (lesion-level hit rate) | 59.5% | **71.4%** | Holds up better |
+| Exudates (lesion-level hit rate, pre-retune) | 59.5% | **71.4%** | Holds up better |
 | Hemorrhages (lesion-level hit rate) | 46.1% | 45.9% | Essentially identical |
 | Vessels (Dice, before the fix below) | 0.673 | 0.594 | Weaker — real, diagnosed and fixed below |
 
@@ -70,6 +70,26 @@ DRIVE for real (Dice down to 0.653/0.625/0.592), so 86 was chosen as the
 point where the DRIVE cost is still negligible, not the point of maximum
 MAPLES-DR gain. `defaultSegmentationConfig.m`'s `VesselThresholdPercentile`
 now reflects this.
+
+**A follow-up idea tested and found NOT to help — reported honestly, not
+hidden.** Hypothesis: a single `fibermetric` call over the whole
+`VesselThicknessRange=[1 8]` might under-represent thin structures
+relative to thick ones in its combined response, so
+`segmentVesselsMultiScale.m` ran `fibermetric` separately over three
+narrower bands (`[1 3]`, `[3 5]`, `[5 8]`) and fused by pixelwise maximum
+— a legitimate, standard multi-scale ridge-detection strategy.
+`tests/validateVesselMultiScale.m` tested it against BOTH DRIVE and
+MAPLES-DR at the SAME threshold (86) as the single-scale baseline, to
+isolate the fusion-strategy change specifically: the result was
+numerically IDENTICAL to single-scale on both (DRIVE 69.0% vs 69.2% sens,
+0.672 Dice both; MAPLES-DR thin-vessel recall 48.3% and Dice 0.645,
+exactly matching). Most likely explanation: `fibermetric` already
+performs some form of multi-scale combination internally across the
+range it's given, making external band-splitting redundant, not
+additive. Kept as an experimental file (not wired into `analyzeForApp.m`,
+which still uses the validated `segmentVessels.m`) — a documented dead
+end, not a silent abandonment, matching this project's practice of
+reporting a negative result as plainly as a positive one.
 
 **Built and validated, with an honest caveat:** microaneurysm, hard exudate,
 and hemorrhage detection, all validated against the full IDRiD segmentation
@@ -119,6 +139,35 @@ themselves (the brief's own "human-in-the-loop" framing), not an
 automated cut that silently hides real disease. The trained classifier is
 saved (`tests/maCandidateClassifier.mat`) for that future use, not
 deployed yet.
+
+**A gentler, recall-preserving operating point exists, found by sweeping
+the classifier's decision threshold instead of accepting its default.**
+`tests/sweepMACandidateThreshold.m` re-scores the same held-out test
+candidates at different decision points instead of retraining anything.
+This caught a real, subtle bug first: RUSBoost (like most boosting
+ensembles in MATLAB) does NOT produce two-column scores that behave like
+a calibrated probability comparable to an absolute 0.5 cutoff the way a
+Bag/random-forest ensemble's do — a first attempt at "sweep probability
+> cutoff" gave results nearly the exact complement of the original
+training run's own numbers (kept 47,944/50,050 candidates vs. the
+original 3,947/50,050 at the "same" cutoff). Fixed by sweeping a MARGIN
+between the two class scores instead (`trueScore - falseScore > margin`),
+verified to reproduce `predict()`'s own default decision exactly at
+margin=0 before trusting a sweep built on it. Result:
+
+| Margin | Precision | Recall |
+|---|---|---|
+| Default (0, the original result) | 20.7% | 62.7% |
+| **-1.659 (recall-preserving)** | **4.8%** | **91.4%** |
+
+At margin=-1.659, precision still nearly doubles the 2.6% no-filtering
+baseline while keeping recall at 91.4% — a real, if more modest,
+improvement than the aggressive default, and one this project could
+actually defend deploying for a lesion type where missing cases is the
+larger clinical risk. Still not wired into `analyzeForApp.m` as a hard
+filter (same reasoning as above — an optional confidence-score threshold
+a reviewer chooses is safer than an app-side default either way), but
+this is the operating point to reach for if that feature is ever built.
 
 **A genuinely new capability, not just a tuning pass: soft exudates
 (cotton wool spots) had NO detector at all before this** — the string
@@ -436,9 +485,27 @@ hemorrhages where one image lacks ground truth):
 
 | Lesion | Sensitivity | Specificity | Precision | Dice | Lesion-level hit rate |
 |---|---|---|---|---|---|
-| Hard exudates | 24.7% | 98.9% | 14.7% | 0.131 | 59.5% |
+| Hard exudates (original tuning, `ExudateThresholdPercentile=97`) | 24.7% | 98.9% | 14.7% | 0.131 | 59.5% |
 | Hemorrhages | 13.5% | 99.2% | 11.5% | 0.096 | 46.1% |
 | Microaneurysms | 21.8% | 99.5% | 5.1% | 0.076 | 82.0% |
+
+**Hard exudates were retuned again, this time against TWO datasets at
+once, and the deployed default changed.** `tests/tuneExudateThresholdTwoDatasets.m`
+applied the same method that fixed vessels — sweep against IDRiD AND
+MAPLES-DR together, not just IDRiD — to `ExudateThresholdPercentile`.
+Unlike vessels, this was a genuine trade-off, not a near-free lunch:
+raising the percentile improves pixel Dice but REDUCES lesion-level hit
+rate on BOTH datasets (97: IDRiD Dice=0.106/hit=51.9%, MAPLES-DR
+Dice=0.035/hit=64.5%; 90: IDRiD Dice=0.062/hit=63.7%, MAPLES-DR
+Dice=0.024/hit=80.7%). `ExudateThresholdPercentile` is now 90, chosen for
+hit rate over Dice — consistent with the "lesion-level hit rate is the
+more informative number" argument two paragraphs below, which this
+retune takes at its word rather than leaving the deployed default
+optimized for the metric this file itself says matters less. The
+sensitivity/specificity/precision columns in the table above are from
+the OLDER pctl=97 tuning and were not re-measured at 90 (only Dice and
+hit rate were swept) — read the row above as historical tuning record,
+not the current deployed configuration's full metric set.
 
 **Read this honestly, not optimistically.** Pixel-level Dice is weak across
 all three (0.08-0.13) — this is NOT an undertuned threshold. Before
@@ -467,8 +534,10 @@ a diagnostic-grade segmentation unsupervised. By that measure:
   matters most, and the rotating-SE method's low precision (5.1%) is a much
   more acceptable trade-off for a *candidate* generator than it would be for
   a claimed final segmentation.
-- **Hard exudates (59.5%)** and **hemorrhages (46.1%)** are weaker — real,
-  but not strong enough to present as reliable on their own.
+- **Hard exudates (59.5% originally, now 63.7% IDRiD / 80.7% MAPLES-DR
+  after the two-dataset retune above)** and **hemorrhages (46.1%)** are
+  weaker than microaneurysms — real, but not strong enough to present as
+  reliable on their own.
 
 ## Hemorrhage type classification (dot/blot vs. flame-shaped)
 

@@ -512,7 +512,27 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
   but recall dropped 100%→62.7% — a real trade-off, not a clean win, which
   is why it's shipped as an available confidence score for human review
   rather than wired in as an automated filter that would silently drop
-  37% of real microaneurysms. Hemorrhage candidates are further split dot/blot vs.
+  37% of real microaneurysms. **Three more follow-up experiments, same
+  session, with mixed and honestly-reported outcomes**: (1) a gentler MA
+  classifier operating point exists — sweeping the DECISION THRESHOLD
+  instead of retraining anything found precision 4.8% at 91.4% recall
+  (vs. the default's 20.7%/62.7%), a real recall-preserving alternative
+  found only after catching a genuine bug (RUSBoost's scores aren't a
+  calibrated probability comparable to an absolute 0.5 cutoff the way a
+  random-forest ensemble's are — a naive sweep first produced results
+  that were nearly the exact complement of the real ones). (2) Hard
+  exudates got the same two-dataset threshold retune vessels did
+  (`ExudateThresholdPercentile` 97→90) — a genuine trade-off this time,
+  not a free lunch: pixel Dice drops but lesion-level hit rate rises on
+  BOTH datasets (IDRiD 51.9%→63.7%, MAPLES-DR 64.5%→80.7%), chosen for
+  hit rate since that's the metric this project has consistently argued
+  matters more for a human-in-the-loop candidate generator. (3) A
+  multi-scale vessel-fusion variant (separate `fibermetric` calls per
+  thickness band instead of one wide-range call) was built and tested
+  against both datasets — and it produced numbers numerically IDENTICAL
+  to the single-scale approach, a genuine negative result kept as a
+  documented dead end (`segmentVesselsMultiScale.m`) rather than silently
+  dropped. Hemorrhage candidates are further split dot/blot vs.
   flame-shaped (shape + radial-orientation-from-disc heuristic — see
   `matlab/segmentation/detectHemorrhages.m`), though that type split has no
   expert ground truth to validate against. Neovascularization (NVD/NVE)

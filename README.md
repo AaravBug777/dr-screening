@@ -744,6 +744,25 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
   MATLAB import and Grad-CAM path. Candidate: `outputs/finetune_v2/best.pt`
   (local, uncommitted).
 
+  **Gated deployment attempt for v2 - gate passed, final check failed, NOT
+  deployed** (`training/cv_threshold_gate2.py`). Pre-registered gate:
+  repeated 5-fold CV on the 1,308 held-out Messidor-2 images (temperature by
+  5-class NLL - the same method returns T=0.80 for the live model, matching
+  what is deployed - then threshold fitted with a 3-point sensitivity
+  margin). v2 PASSED: 92.8% sens / 86.5% spec (live model 92.8 / 86.8). But
+  the follow-up check on sets not used for fitting failed: at that
+  Messidor-tuned threshold (0.115) v2 gives DDR 93.8/85.1 (live model
+  81.4/96.7), IDRiD 97.5/**76.2** (93.5/85.0), FGADR test 100/**1.3**
+  (92.4/21.8). v2 ranks better (AUC, QWK, Mild recall), but a single
+  threshold cannot serve populations whose score distributions differ, and
+  a Messidor-fitted one gives up too much specificity elsewhere. An earlier
+  temperature+threshold joint search also slid to the grid edge (T=0.5),
+  which would have made displayed confidences near-binary - caught and
+  replaced by likelihood-based temperature. Live model unchanged. Open
+  options: use v2 only for the 5-class grade/Mild label while keeping the
+  live model's referable decision, or train with more populations so
+  score distributions align.
+
 
 ## Future work (deliberately deferred, not forgotten)
 

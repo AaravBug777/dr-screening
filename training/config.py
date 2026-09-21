@@ -99,6 +99,17 @@ REFERABLE_THRESHOLD = 0.30
 TTA_REFERABLE_TEMPERATURE = 0.80
 TTA_REFERABLE_THRESHOLD = 0.27
 
+# --- Preprocessing working resolution (retrain pipeline) ---
+# Ben Graham preprocessing downscales to this before its Gaussian blur. The
+# live pipeline historically used 640 (dataset.ben_graham_preprocess's own
+# default); the retrain caches at 1024 because a median IDRiD microaneurysm
+# (~18px native) shrinks to ~2.7px at 640 and ~1.6px after a 380px training
+# resize, which is why Mild recall was floored. Training and INFERENCE must
+# use the same value or the model sees a different distribution than it
+# trained on -- build_cache.py and backend/main.py both read this.
+PREPROCESS_WORKING_DIM = 1024
+TRAIN_DIM = 640
+
 # --- Grade model (hybrid deployment) ---
 # The displayed 5-class grade, class probabilities and Grad-CAM heatmap come from a mixed-data
 # fine-tune (finetune_v2.py: FGADR + Messidor-2 + DDR + replay) that beat the original model on

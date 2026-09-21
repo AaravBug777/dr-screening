@@ -33,11 +33,17 @@ def crop_to_fundus(img, tol=7):
     """Crop away the black border around the circular fundus image."""
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     mask = gray > tol
-    if mask.sum() == 0:
+    # Bounding box from row/column projections rather than np.argwhere: argwhere
+    # materializes a (n_nonzero, 2) int64 index array -- ~52MB for a single
+    # 4288x2848 fundus -- which exhausted RAM when the cache builder ran many
+    # workers in parallel. Projections are O(h+w) and give an identical box
+    # (verified byte-identical on one image from each of the six datasets).
+    rows = mask.any(axis=1)
+    cols = mask.any(axis=0)
+    if not rows.any():
         return img
-    coords = np.argwhere(mask)
-    y0, x0 = coords.min(axis=0)
-    y1, x1 = coords.max(axis=0) + 1
+    y0, y1 = int(np.argmax(rows)), int(len(rows) - np.argmax(rows[::-1]))
+    x0, x1 = int(np.argmax(cols)), int(len(cols) - np.argmax(cols[::-1]))
     return img[y0:y1, x0:x1]
 
 
@@ -63,6 +69,39 @@ def ben_graham_preprocess(img, sigma_frac=10, max_working_dim=640):
     blurred = cv2.GaussianBlur(img, (0, 0), sigma)
     img = cv2.addWeighted(img, 4, blurred, -4, 128)
     return img
+
+
+def ben_graham_fast(img, working_dim, blur_downscale=4):
+    """Ben Graham preprocessing for the v3 retrain pipeline (build_cache.py and,
+    once v3 is deployed, the backend). Same steps as ben_graham_preprocess --
+    crop, downscale, subtract a wide Gaussian blur -- with two differences:
+
+      * working_dim is explicit (the retrain caches at 1024, not 640; see
+        config.PREPROCESS_WORKING_DIM for why microaneurysm size makes that
+        matter), and
+      * the blur is computed at 1/blur_downscale scale and upsampled. A
+        sigma=height/10 Gaussian is a low-pass filter with essentially no
+        energy above that scale, so this is a close approximation (mean error
+        ~0.5/255 levels after the x4 amplification) for ~50x less compute --
+        the exact version's ~600-tap kernel dominated the whole cache build.
+
+    ben_graham_preprocess is deliberately left untouched so the currently
+    deployed model's inference path does not change. Training and inference
+    must call the SAME one of these two; mixing them is a domain shift.
+    """
+    img = crop_to_fundus(img)
+    h, w = img.shape[:2]
+    if max(h, w) > working_dim:
+        scale = working_dim / max(h, w)
+        img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    h, w = img.shape[:2]
+    sigma = h / 10
+    f = max(1, blur_downscale)
+    small = cv2.resize(img, (max(1, w // f), max(1, h // f)), interpolation=cv2.INTER_AREA)
+    blurred = cv2.GaussianBlur(small, (0, 0), sigma / f)
+    if f > 1:
+        blurred = cv2.resize(blurred, (w, h), interpolation=cv2.INTER_LINEAR)
+    return cv2.addWeighted(img, 4, blurred, -4, 128)
 
 
 def load_aptos_df():

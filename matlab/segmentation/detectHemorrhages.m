@@ -1,4 +1,4 @@
-function [hemorrhageMask, hemInfo] = detectHemorrhages(img, opts)
+function [hemorrhageMask, hemInfo, debug] = detectHemorrhages(img, opts)
 %DETECTHEMORRHAGES Black top-hat detection + shape-based type classification of hemorrhages.
 %   [HEMORRHAGEMASK, HEMINFO] = DETECTHEMORRHAGES(IMG) returns a logical
 %   mask (at opts.LesionMaxWorkingDim resolution) of candidate hemorrhage
@@ -58,6 +58,7 @@ normalized = min(max(green - background + 0.5, 0), 1);
 bothat = imbothat(normalized, strel('disk', opts.HemorrhageTophatRadius));
 bothat(~fovMask) = 0;
 
+debug = struct('response', bothat, 'candidateMask', candidateMask); % optional 3rd output, for threshold experiments
 vals = bothat(candidateMask);
 hemInfo = struct('count', 0, 'dotBlotCount', 0, 'flameCount', 0, 'totalAreaPx', 0, 'regions', []);
 if isempty(vals) || max(vals) <= 0
@@ -65,7 +66,11 @@ if isempty(vals) || max(vals) <= 0
     return
 end
 
-level = prctile(vals, opts.HemorrhageThresholdPercentile);
+if isfield(opts, 'HemorrhageAbsoluteLevel') && ~isempty(opts.HemorrhageAbsoluteLevel)
+    level = opts.HemorrhageAbsoluteLevel; % absolute response cutoff (see defaultSegmentationConfig.m)
+else
+    level = prctile(vals, opts.HemorrhageThresholdPercentile);
+end
 raw = bothat > level & candidateMask;
 sizeFiltered = bwareaopen(raw, opts.HemorrhageMinAreaPx);
 

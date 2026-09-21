@@ -736,7 +736,9 @@ not-uniformly-flattering result.)
   13.1% specificity and Dice 0.003 - directionally real (p=0.008) but not a
   working detector, confirming the MAPLES-DR result at ~10x the positives.
   The same run also checked MA/exudate/hemorrhage detectors (lesion hit rates
-  hold up, but candidate counts do not rise with grade - see that section).
+  hold up, but candidate counts do not rise with grade - see that section;
+  swapping the per-image percentile for absolute cutoffs was tested and does
+  NOT fix this, because response scale differs across imaging sources).
 - **Mild-grade data and longer training** - the DR grading model already
   clears the brief's sensitivity/specificity targets (92.05%/87.43%), so
   this isn't blocking brief alignment, just general model quality/class

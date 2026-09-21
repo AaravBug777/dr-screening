@@ -69,6 +69,15 @@ opts.FoveaMinBandSizeFraction = 0.4; % a side's search band must have at least t
 % helps at all before it's worth tuning further.
 opts.FoveaVesselAvoidanceWeight = 0.5;
 
+% Optional ABSOLUTE response cutoffs for each lesion detector. Empty (the
+% default) keeps the per-image percentile thresholds below, which flag a
+% near-constant fraction of every image regardless of disease load (FGADR
+% showed candidate counts do not rise with grade). See tests/sweepAbsoluteLesionLevels.m.
+opts.MAAbsoluteLevel = [];
+opts.ExudateAbsoluteLevel = [];
+opts.HemorrhageAbsoluteLevel = [];
+opts.SoftExudateAbsoluteLevel = [];
+
 % ---- Lesion detection (microaneurysms, hemorrhages, hard exudates) ----
 % Deliberately a MUCH higher working resolution than MaxWorkingDim=640 used
 % above. Measured real IDRiD lesion sizes at native resolution

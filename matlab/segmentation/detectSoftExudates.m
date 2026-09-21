@@ -1,4 +1,4 @@
-function [softExudateMask, seInfo] = detectSoftExudates(img, opts, hardExudateMask)
+function [softExudateMask, seInfo, debug] = detectSoftExudates(img, opts, hardExudateMask)
 %DETECTSOFTEXUDATES White top-hat detection of cotton-wool-spot lesions.
 %   [SOFTEXUDATEMASK, SEINFO] = DETECTSOFTEXUDATES(IMG) returns a logical
 %   mask (at opts.LesionMaxWorkingDim resolution) of candidate soft
@@ -49,6 +49,7 @@ if ~isempty(hardExudateMask)
     candidateMask = candidateMask & ~hardExudateMask;
 end
 
+debug = struct('response', tophat, 'candidateMask', candidateMask); % optional 3rd output, for threshold experiments
 vals = tophat(candidateMask);
 seInfo = struct('count', 0, 'totalAreaPx', 0, 'regions', []);
 if isempty(vals) || max(vals) <= 0
@@ -56,7 +57,11 @@ if isempty(vals) || max(vals) <= 0
     return
 end
 
-level = prctile(vals, opts.SoftExudateThresholdPercentile);
+if isfield(opts, 'SoftExudateAbsoluteLevel') && ~isempty(opts.SoftExudateAbsoluteLevel)
+    level = opts.SoftExudateAbsoluteLevel; % absolute response cutoff (see defaultSegmentationConfig.m)
+else
+    level = prctile(vals, opts.SoftExudateThresholdPercentile);
+end
 raw = tophat > level & candidateMask;
 softExudateMask = bwareaopen(raw, opts.SoftExudateMinAreaPx);
 

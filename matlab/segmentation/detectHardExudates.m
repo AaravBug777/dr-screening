@@ -1,4 +1,4 @@
-function [exudateMask, exInfo] = detectHardExudates(img, opts)
+function [exudateMask, exInfo, debug] = detectHardExudates(img, opts)
 %DETECTHARDEXUDATES White top-hat detection of bright lipid-deposit lesions.
 %   [EXUDATEMASK, EXINFO] = DETECTHARDEXUDATES(IMG) returns a logical mask
 %   (at opts.LesionMaxWorkingDim resolution) of candidate hard exudate
@@ -37,6 +37,7 @@ normalized = min(max(green - background + 0.5, 0), 1);
 tophat = imtophat(normalized, strel('disk', opts.ExudateTophatRadius));
 tophat(~fovMask) = 0;
 
+debug = struct('response', tophat, 'candidateMask', candidateMask); % optional 3rd output, for threshold experiments
 vals = tophat(candidateMask);
 exInfo = struct('count', 0, 'totalAreaPx', 0, 'regions', []);
 if isempty(vals) || max(vals) <= 0
@@ -44,7 +45,11 @@ if isempty(vals) || max(vals) <= 0
     return
 end
 
-level = prctile(vals, opts.ExudateThresholdPercentile);
+if isfield(opts, 'ExudateAbsoluteLevel') && ~isempty(opts.ExudateAbsoluteLevel)
+    level = opts.ExudateAbsoluteLevel; % absolute response cutoff (see defaultSegmentationConfig.m)
+else
+    level = prctile(vals, opts.ExudateThresholdPercentile);
+end
 raw = tophat > level & candidateMask;
 exudateMask = bwareaopen(raw, opts.ExudateMinAreaPx);
 

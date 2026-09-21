@@ -1,4 +1,4 @@
-function [maMask, maInfo] = detectMicroaneurysms(img, opts)
+function [maMask, maInfo, debug] = detectMicroaneurysms(img, opts)
 %DETECTMICROANEURYSMS Rotating-linear-SE morphological reconstruction for MA candidates.
 %   [MAMASK, MAINFO] = DETECTMICROANEURYSMS(IMG) returns a logical mask (at
 %   opts.LesionMaxWorkingDim resolution) of candidate microaneurysm pixels.
@@ -71,6 +71,7 @@ candidateResponse(candidateResponse < 0) = 0;
 % would erase real MAs sitting close to a vessel.
 candidateMask = fovMask & ~odOnlyMask;
 
+debug = struct('response', candidateResponse, 'candidateMask', candidateMask); % optional 3rd output, for threshold experiments
 vals = candidateResponse(candidateMask);
 maInfo = struct('count', 0, 'totalAreaPx', 0, 'regions', []);
 if isempty(vals) || max(vals) <= 0
@@ -78,7 +79,11 @@ if isempty(vals) || max(vals) <= 0
     return
 end
 
-level = prctile(vals, opts.MAThresholdPercentile);
+if isfield(opts, 'MAAbsoluteLevel') && ~isempty(opts.MAAbsoluteLevel)
+    level = opts.MAAbsoluteLevel; % absolute response cutoff (see defaultSegmentationConfig.m)
+else
+    level = prctile(vals, opts.MAThresholdPercentile);
+end
 raw = candidateResponse > level & candidateMask;
 sizeFiltered = bwareaopen(raw, opts.MAMinAreaPx);
 

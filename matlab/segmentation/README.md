@@ -366,6 +366,33 @@ result (n=5) with ~10x the positives: not a working detector. Present as
 "candidate tortuous/dense vessel regions", never "neovascularization
 detected". Caveat: a few "negatives" (esp. grade 3-4) may have unannotated NV.
 
+### Follow-up: absolute response cutoffs do NOT fix count-vs-grade (negative result)
+
+Hypothesis: replace each detector's per-image percentile with an absolute
+cutoff on its (illumination-normalized) response, so counts can scale with
+disease. `tests/sweepAbsoluteLesionLevels.m` swept six levels (0.5x-3x of
+each detector's typical current cutoff; detectors gained an optional
+`*AbsoluteLevel` opt and a 3rd `debug` output, defaults unchanged and
+verified pixel-identical on real images), tuning on IDRiD + MAPLES-DR and
+judging on 250 held-out FGADR images (50 per grade).
+
+Result: the cutoffs behave on the tuning sets (about the same ~4-5% of the
+FOV flagged and similar hit rate at x1.0) but **do not transfer**: on FGADR
+the identical absolute levels flag **21-54% of the FOV** (MA 21%, hard
+exudates 54%, hemorrhages 45%, soft exudates 52%) versus ~5% under the
+percentile. Response magnitudes differ enormously between imaging sources,
+so an absolute number encodes dataset contrast, not lesion load. Grade
+correlation is also unusable: MA count stays negatively correlated with
+grade at every level (Spearman -0.42 to -0.65); at low cutoffs exudate,
+hemorrhage and soft-exudate counts correlate positively (~+0.4 to +0.58)
+but only while flagging half the image, and flagged AREA correlates
+negatively with grade (about -0.6) - i.e. FGADR's higher-grade images
+have weaker responses at a fixed cutoff, an imaging-source confound. Not
+adopted; `analyzeForApp.m` and the deployed percentiles are unchanged. A
+per-image robust scale (median + k*MAD of each response) is the untested
+next candidate: it adapts to contrast like a percentile does, but flags
+more when the response tail is heavier.
+
 ## Files
 
 | File | Purpose |

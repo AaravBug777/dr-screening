@@ -763,6 +763,39 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
   live model's referable decision, or train with more populations so
   score distributions align.
 
+  **Deployed: the hybrid.** The app now shows the grade, class probabilities
+  and Grad-CAM from the v2 fine-tune (`training/outputs/best_model_grade_v2.pt`,
+  T=0.85) while the referable decision, probability and threshold are still
+  the original model's, unchanged (`backend/main.py`, `config.GRADE_*`; falls
+  back to the original model for the grade if the file is missing). Forcing
+  the v2 grade to agree with the original referral flag was tested first and
+  rejected: it discards most of the gain (Mild recall 21%/62%/56%/8% on
+  FGADR/DDR/IDRiD/Messidor-2, and Messidor-2 QWK 0.78 < the original's 0.81),
+  because the original model's low specificity pushes many true No-DR/Mild
+  eyes into "referable". The deployed unconstrained hybrid leaves referral
+  metrics identical by construction and, on held-out data, changes the
+  grade as follows (original -> hybrid):
+
+  | Held-out set | QWK | Mild recall | Exact accuracy |
+  |---|---|---|---|
+  | FGADR test (461) | 0.482 -> **0.798** | 2% -> **62%** | 46.2% -> **67.9%** |
+  | DDR (2,000) | 0.774 -> **0.840** | 19% -> **68%** | 72.5% -> 72.5% |
+  | IDRiD (516) | 0.818 -> **0.845** | 68% -> **80%** | 57.0% -> **59.5%** |
+  | Messidor-2 test (872) | 0.811 -> **0.824** | 14% -> 17% | 75.5% -> 74.4% |
+
+  Costs, stated plainly: grade and referral flag can disagree slightly more
+  often than before (share of images where grade>=2 differs from the referral
+  flag: FGADR 16.1->20.4%, DDR 4.9->5.9%, IDRiD 7.8->9.3%, Messidor-2
+  7.3->13.3%; the original model already disagreed with itself 5-16% of the
+  time, since the flag is deliberately more sensitive than the argmax);
+  Messidor-2 exact accuracy dips ~1 point; Mild on Messidor-2 is still weak;
+  inference does one extra 6-view forward pass (~+0.3 s). The earlier
+  "92.05% / 87.43%" figures describe the original model's referral decision,
+  which is unchanged. Rollback: delete `best_model_grade_v2.pt`. Verified
+  end to end through the real `/predict` endpoint on three FGADR test images
+  (grade and probabilities identical to v2's cached output, referable
+  probability identical to the original model's to 4 decimals).
+
 
 ## Future work (deliberately deferred, not forgotten)
 

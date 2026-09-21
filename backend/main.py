@@ -56,7 +56,7 @@ sys.path.insert(0, os.path.abspath(TRAINING_DIR))
 import config as cfg  # noqa: E402
 from dataset import ben_graham_preprocess, get_transforms  # noqa: E402
 from gradcam import GradCAM, load_trained_model, overlay_heatmap  # noqa: E402
-from tta import generate_tta  # noqa: E402
+from tta import generate_tta, tta_probs  # noqa: E402
 
 import matlab_bridge  # noqa: E402
 from matlab_bridge import analyze_with_matlab  # noqa: E402
@@ -126,6 +126,29 @@ def get_model_and_cam():
         _model = load_trained_model(CHECKPOINT_PATH, DEVICE)
         _cam_tool = GradCAM(_model)
     return _model, _cam_tool
+
+
+GRADE_CHECKPOINT_PATH = os.path.join(TRAINING_DIR, "outputs", cfg.GRADE_CHECKPOINT_NAME)
+_grade_model = None
+_grade_cam_tool = None
+
+
+def get_grade_model_and_cam():
+    """Model that supplies the displayed grade/probabilities/heatmap (config.GRADE_CHECKPOINT_NAME).
+    Falls back to the referral model if that file is absent, so the app never fails to grade."""
+    global _grade_model, _grade_cam_tool
+    if _grade_model is None:
+        if os.path.exists(GRADE_CHECKPOINT_PATH):
+            _grade_model = load_trained_model(GRADE_CHECKPOINT_PATH, DEVICE)
+            _grade_cam_tool = GradCAM(_grade_model)
+            _grade_temperature_holder["T"] = cfg.GRADE_TEMPERATURE
+        else:
+            _grade_model, _grade_cam_tool = get_model_and_cam()
+            _grade_temperature_holder["T"] = cfg.TTA_REFERABLE_TEMPERATURE
+    return _grade_model, _grade_cam_tool, _grade_temperature_holder["T"]
+
+
+_grade_temperature_holder = {"T": cfg.TTA_REFERABLE_TEMPERATURE}
 
 
 def encode_image_to_base64(rgb_array: np.ndarray) -> str:
@@ -289,9 +312,16 @@ async def predict(file: UploadFile = File(...), operator: dict = Depends(auth.re
     # that made this the live default. Costs ~6x a single view's inference
     # time; run_in_threadpool keeps that off the event loop the same way
     # the MATLAB call above is.
+    # Hybrid: the displayed grade, class probabilities and heatmap come from the grade model;
+    # the referable decision below always comes from the original (referral) model.
+    grade_model, grade_cam_tool, grade_temperature = get_grade_model_and_cam()
     cam, pred_class, probs = await run_in_threadpool(
-        generate_tta, cam_tool, tensor, cfg.TTA_REFERABLE_TEMPERATURE
+        generate_tta, grade_cam_tool, tensor, grade_temperature
     )
+    if grade_model is model:
+        referral_probs = probs
+    else:
+        referral_probs = await run_in_threadpool(tta_probs, model, tensor, cfg.TTA_REFERABLE_TEMPERATURE)
 
     display_img = cv2.resize(processed, (cfg.IMG_SIZE, cfg.IMG_SIZE))
     overlay = overlay_heatmap(display_img, cam)
@@ -303,7 +333,7 @@ async def predict(file: UploadFile = File(...), operator: dict = Depends(auth.re
     # Compares combined probability mass on referable classes (grade >= 2)
     # against a tuned threshold instead. See config.py's
     # TTA_REFERABLE_THRESHOLD docstring for how it was tuned and validated.
-    referable_probability = float(sum(probs[2:]))
+    referable_probability = float(sum(referral_probs[2:]))
     is_referable = referable_probability > cfg.TTA_REFERABLE_THRESHOLD
 
     response = {

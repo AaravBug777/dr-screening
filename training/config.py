@@ -99,6 +99,17 @@ REFERABLE_THRESHOLD = 0.30
 TTA_REFERABLE_TEMPERATURE = 0.80
 TTA_REFERABLE_THRESHOLD = 0.27
 
+# --- Grade model (hybrid deployment) ---
+# The displayed 5-class grade, class probabilities and Grad-CAM heatmap come from a mixed-data
+# fine-tune (finetune_v2.py: FGADR + Messidor-2 + DDR + replay) that beat the original model on
+# held-out QWK and Mild recall (README, "FGADR exposed real grading failures"). The REFERABLE
+# decision stays with the original model and TTA_REFERABLE_* above, because no single threshold
+# on the fine-tune generalized across populations. If the file is missing the app falls back to
+# the original model for the grade too. Temperature 0.85 = the NLL-optimal value on held-out
+# Messidor-2 (the same method returns 0.80 for the original model).
+GRADE_CHECKPOINT_NAME = "best_model_grade_v2.pt"
+GRADE_TEMPERATURE = 0.85
+
 # Clinical recommendation shown in the app per class
 RECOMMENDATIONS = {
     0: "No signs of diabetic retinopathy detected. Continue annual screening.",

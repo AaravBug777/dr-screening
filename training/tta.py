@@ -89,3 +89,14 @@ def generate_tta(cam_tool, image_tensor, temperature=1.0):
         avg_cam = avg_cam / avg_cam.max()
 
     return avg_cam, class_idx, avg_probs
+
+
+def tta_probs(model, image_tensor, temperature=1.0):
+    """TTA-averaged class probabilities only (no Grad-CAM pass) -- for callers that just need
+    the probability vector, e.g. the referable decision when the displayed grade/heatmap
+    come from a different model (backend/main.py)."""
+    probs = []
+    with torch.no_grad():
+        for forward_fn, _ in _build_views():
+            probs.append(F.softmax(model(forward_fn(image_tensor)) / temperature, dim=1).cpu().numpy()[0])
+    return np.mean(probs, axis=0)

@@ -716,6 +716,34 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
   (`outputs/finetune/best.pt`, not committed) with the old model backed up.
   Mild on Messidor-2 stays weak (14-16%) either way.
 
+  **v2 (mixed-data fine-tune), a second attempt to remove that regression**
+  (`training/finetune_v2.py`): trains on FGADR + Messidor-2 (split by image
+  into train / calibration-only / test) + DDR rows outside the evaluation
+  sample + replayed APTOS/EyePACS, Mild up-weighted; epoch chosen by a rule
+  fixed in advance (best mean val QWK -> epoch 1). Same protocol for every
+  model (T/threshold fitted only on FGADR-val + Messidor-2 cal, sens>=92% on
+  each source; tested on data no model trained on;
+  `training/compare_models_v2_persource.py`):
+
+  | Held-out set | Model | QWK | Mild recall | Ref. sens / spec | Ref. AUC |
+  |---|---|---|---|---|---|
+  | FGADR test (461) | old / v2 | 0.484 / **0.798** | 2% / **62%** | 90.1/24.4 -> 97.9/30.8 | 0.818 / **0.912** |
+  | DDR sample (2000) | old / v2 | 0.774 / **0.840** | 19% / **68%** | 79.8/97.3 -> **86.8**/95.4 | 0.963 / **0.970** |
+  | IDRiD (516) | old / v2 | 0.818 / **0.844** | 68% / **80%** | 92.6/87.6 -> 94.4/87.0 | 0.970 / **0.980** |
+  | Messidor-2 test half (872) | old / v2 | 0.811 / **0.824** | 14% / 18% | 89.9 deployed, 87.3 recal -> **82.0**/93.6 | 0.962 / 0.964 |
+
+  v2 discriminates as well or better than the deployed model on every
+  held-out set (AUC) and greatly improves Mild on three of four, but its
+  Messidor-2 sensitivity at the calibrated threshold (82.0%) is below the
+  brief's 90% target. The AUC parity says this is a threshold/calibration
+  problem, not worse ranking: the 436-image Messidor-2 calibration quarter
+  is too small (~110 referable cases) and a threshold chosen to just clear
+  92% on it regresses to the mean on the test half. NOT deployed: shipping
+  it needs a threshold refit on the larger pooled Messidor-2 set (which uses
+  up its untouched test half), plus ONNX re-export and re-verification of the
+  MATLAB import and Grad-CAM path. Candidate: `outputs/finetune_v2/best.pt`
+  (local, uncommitted).
+
 
 ## Future work (deliberately deferred, not forgotten)
 

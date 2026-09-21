@@ -328,6 +328,44 @@ regions, informative in aggregate but not reliably localized" — never as
 "neovascularization detected". See `detectNeovascularization.m`'s
 calibration caveat for the full reasoning.
 
+## Third-grader validation against FGADR (n=700; 49 real NV positives)
+
+`tests/validateAgainstFGADR.m` ran the deployed detectors once per image on
+every FGADR NV-positive image (49, vs. n=5 in MAPLES-DR) plus a grade-
+stratified sample of the rest (700 total, 1280px images, masks binarized at
+>127; NV negatives assume "no mask file = no NV"). Data stays under
+`training/data/` (gitignored, research-use license).
+
+| Detector | n annotated | Pixel sens | Dice | Lesion hit rate | IDRiD / MAPLES-DR hit |
+|---|---|---|---|---|---|
+| Microaneurysms | 560 | 21.1% | 0.011 | **98.5%** | 98.0 / 96.9 |
+| Hard exudates | 493 | 13.1% | 0.031 | 72.6% | ~64 / ~81 |
+| Soft exudates | 248 | 9.2% | 0.033 | 67.6% | 83.8 / 29.2 |
+| Hemorrhages | 552 | 10.4% | 0.058 | **59.8%** | 42.6 / 39.3 |
+
+Lesion hit rates hold up on a third grader (hemorrhages and soft exudates
+better than on MAPLES-DR). Two honest caveats. (1) **The hit rate is
+generous by construction**: after the percentile retunes the detectors flag
+~5% of FOV pixels (specificity 94.8-98.1%) and ~12,000 MA candidates per
+image, so a high hit rate is partly easy coverage; a random-mask chance
+baseline was not run and would be the right control. (2) **Candidate counts
+do NOT rise with true grade** (mean MA 12,317 at grade 0 vs 10,545 at
+grade 4; hard exudates 2,418 vs 1,533; hemorrhages 678 vs 521; soft
+exudates flat). Because each detector thresholds at a per-image percentile,
+it flags a near-constant fraction of every image regardless of disease
+load, so raw counts are not a severity signal - a plausible contributor to
+the structural classifier's weak generalization, and a real design
+limitation, not something the retunes fixed.
+
+**Neovascularization, now at n=49:** image-level sensitivity **98.0%**
+(48/49) but specificity **13.1%** (85/651); pixel Dice mean 0.003 (median
+0). Candidate counts are higher on positives (3.37 vs 2.57, one-sided
+ranksum p=0.0079), so the directional trend holds, but the detector flags
+nearly every image and does not localize NV. This confirms the MAPLES-DR
+result (n=5) with ~10x the positives: not a working detector. Present as
+"candidate tortuous/dense vessel regions", never "neovascularization
+detected". Caveat: a few "negatives" (esp. grade 3-4) may have unannotated NV.
+
 ## Files
 
 | File | Purpose |

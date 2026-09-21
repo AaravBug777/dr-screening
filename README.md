@@ -731,8 +731,12 @@ not-uniformly-flattering result.)
   now been granted and the Seg-set (1,842 images, 49 real NV masks vs. the
   current n=5) is on disk under the license's no-redistribution terms
   (`training/data/` is gitignored - never commit it). The NV detector has
-  NOT yet been validated against it; that is the remaining step. See the
-  FGADR grading check in the bullet below for what was done with it so far.
+  now been validated against it (n=49 positives, `matlab/segmentation/README.md`'s
+  "Third-grader validation against FGADR"): 98.0% image sensitivity but only
+  13.1% specificity and Dice 0.003 - directionally real (p=0.008) but not a
+  working detector, confirming the MAPLES-DR result at ~10x the positives.
+  The same run also checked MA/exudate/hemorrhage detectors (lesion hit rates
+  hold up, but candidate counts do not rise with grade - see that section).
 - **Mild-grade data and longer training** - the DR grading model already
   clears the brief's sensitivity/specificity targets (92.05%/87.43%), so
   this isn't blocking brief alignment, just general model quality/class

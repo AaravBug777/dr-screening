@@ -684,6 +684,38 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
 - Grad-CAM shows *where* the model looked, not proof the reasoning is
   clinically correct - useful for sanity-checking, not a formal explainability
   guarantee.
+- **FGADR exposed real grading failures; a targeted fine-tune helped on
+  FGADR but is NOT deployed.** The current grader was run on the FGADR
+  Seg-set (1,842 images, grades 0-4, 1280x1280) with nothing fit on it:
+  referable sensitivity 92.9% but specificity only **25.9%**, **Mild recall
+  2.4%**, PDR recall 27%, QWK 0.459. FGADR's own lesion masks confirmed the
+  labels are internally consistent (grade 0 almost never has lesion masks;
+  every Mild image has them, mostly microaneurysms only), so this is mostly
+  a real model failure. A fine-tune from the current checkpoint on a mix of
+  FGADR (60% split by image; 15% val; 25% test never seen) plus replayed
+  APTOS/EyePACS, with Mild oversampled and up-weighted
+  (`training/finetune_fgadr.py`), was compared on held-out sets at
+  temperature/threshold recalibrated only on non-test data
+  (`training/eval_checkpoint.py`):
+
+  | Held-out set | Model | QWK | Mild recall | Ref. sens / spec |
+  |---|---|---|---|---|
+  | FGADR test (n=461) | old / new | 0.482 / **0.792** | 2% / **57%** | 92.4/21.8 -> 94.3/47.4 |
+  | DDR (n=2000) | old / new | 0.774 / 0.778 | 19% / **45%** | 81.4/96.7 -> 78.4/97.5 |
+  | IDRiD (n=516) | old / new | 0.818 / **0.844** | 68% / **76%** | 93.5/85.0 -> 90.1/92.7 |
+  | Messidor-2 half (n=872) | old / new | **0.811** / 0.770 | 14% / 16% | 89.9/87.3 -> 88.2/81.7 |
+
+  A genuine trade-off, not a win: large gains on FGADR and better Mild
+  recall on three of four sets, but a regression on Messidor-2 (the
+  population the brief's 90%/85% targets were calibrated on; the old model
+  has a home-field advantage there) and slightly lower DDR sensitivity.
+  Referable specificity on FGADR is still only 47%. Averaging old and new
+  predictions was also tried: a compromise that dominates nowhere. Per the
+  rule of only shipping demonstrable improvements, the live model is
+  unchanged (`best_model.pt`); the candidate is kept locally
+  (`outputs/finetune/best.pt`, not committed) with the old model backed up.
+  Mild on Messidor-2 stays weak (14-16%) either way.
+
 
 ## Future work (deliberately deferred, not forgotten)
 
@@ -695,14 +727,12 @@ deferred here too but was later pulled back into scope and completed -
 see `matlab/README.md`'s "DDR-scale validation" section for that honest,
 not-uniformly-flattering result.)
 
-- **Neovascularization ground-truth expansion via FGADR** - the current
-  NV validation sits at n=5 positive cases (`matlab/segmentation/README.md`'s
-  "Neovascularization" section), the genuine ceiling of what MAPLES-DR
-  provides against this project's already-downloaded Messidor-2 subset.
-  FGADR (1,842 pixel-level annotated images, including a real NV class)
-  would meaningfully expand this - access has been requested but not yet
-  granted (a signed research-use agreement + manual approval, not an
-  instant download).
+- **Neovascularization ground-truth expansion via FGADR** - access has
+  now been granted and the Seg-set (1,842 images, 49 real NV masks vs. the
+  current n=5) is on disk under the license's no-redistribution terms
+  (`training/data/` is gitignored - never commit it). The NV detector has
+  NOT yet been validated against it; that is the remaining step. See the
+  FGADR grading check in the bullet below for what was done with it so far.
 - **Mild-grade data and longer training** - the DR grading model already
   clears the brief's sensitivity/specificity targets (92.05%/87.43%), so
   this isn't blocking brief alignment, just general model quality/class

@@ -889,6 +889,45 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
   pass (latency not yet measured on an idle GPU -- the verification ran while
   v3 was still training).
 
+- **Two further experiments closed the model work, both negative, both
+  informative.** (1) *More epochs is a spent lever.* Resuming v3 for 10 more
+  epochs (`train_v3.py --resume`) produced ZERO improvements: best 0.9048 vs the
+  protected 0.9088, while training loss fell 0.587 -> 0.506 -- loss dropping
+  while validation stays flat is overfitting, not headroom. An earlier reading
+  of "still improving at epoch 14" was simply wrong. (2) *A stronger, higher-
+  resolution model does not help the ensemble.* `benchmark_archs.py` measured
+  what actually fits on this GPU and found EfficientNet-B3 badly underuses it:
+  ConvNeXt-Tiny at **768px** runs at 25 img/s where B3 at 512px manages 10
+  (depthwise convolutions are bandwidth-bound; ConvNeXt's dense convolutions
+  use the tensor cores). So 768px -- previously assumed unaffordable, and the
+  reason v3 settled for 512 -- was in fact cheaper than what we had already
+  run. ConvNeXt-Tiny trained at 768px (`outputs/v4_convnext`, 16 epochs, 3.7 h)
+  reached the best calibration score of any single model, **cal QWK 0.924 vs
+  B3's 0.909**.
+
+  It still did not ship, and the reason is the most useful thing learned here:
+
+  | Combination (test suite) | mean QWK | mean Mild | IDRiD QWK |
+  |---|---|---|---|
+  | **deployed v2+v3** | **0.843** | **0.50** | **0.800** |
+  | equal thirds v2+v3+v4 | 0.843 | 0.46 | 0.755 |
+  | v2+v4 | 0.841 | 0.45 | 0.779 |
+  | cal-best blend 0.1/0.5/0.4 | 0.835 | 0.45 | 0.740 |
+  | v4 (ConvNeXt) alone | 0.825 | 0.41 | 0.695 |
+
+  **The calibration split cannot see this failure.** `cal` contains only DDR,
+  FGADR and Messidor-2 -- populations the model trains on -- so cal QWK rewards
+  fitting those harder, and ConvNeXt duly won there while scoring WORST of any
+  model on IDRiD (0.695), the one population no model has ever trained on. A
+  model-selection metric drawn only from trained populations is systematically
+  biased toward domain adaptation over generalization. The right fix is a
+  calibration split containing a population held out from training entirely;
+  that was not done here because IDRiD is small (516) and was deliberately
+  reserved as the untouched final test.
+
+  Model work is closed: no further training runs. Deployed configuration
+  remains the v2+v3 grade ensemble plus the original referral model.
+
 
 ## Future work (deliberately deferred, not forgotten)
 

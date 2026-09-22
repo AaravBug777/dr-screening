@@ -43,7 +43,7 @@ import pandas as pd
 import config
 from build_cache import cache_path
 
-OUT_DIR = os.path.join(config.OUTPUT_DIR, "v3")
+DEFAULT_OUT_DIR = os.path.join(config.OUTPUT_DIR, "v3")
 
 
 def soft_ordinal_targets(labels, n_classes, smooth):
@@ -111,8 +111,11 @@ def main():
     ap.add_argument("--val-samples", type=int, default=2000,
                     help="subsample of the APTOS/EyePACS val split used for per-epoch monitoring only "
                          "(selection uses cal); the full 5.8k costs several minutes per epoch")
+    ap.add_argument("--out-dir", default=DEFAULT_OUT_DIR,
+                    help="separate directory per run -- a second architecture must not overwrite v3's checkpoints")
     ap.add_argument("--resume", default="")
     args = ap.parse_args()
+    OUT_DIR = args.out_dir
     os.makedirs(OUT_DIR, exist_ok=True)
 
     man = pd.read_csv(os.path.join(config.OUTPUT_DIR, "manifest.csv"))
@@ -226,7 +229,7 @@ def main():
             torch.save({"model_state_dict": model.state_dict(), "model_name": args.arch,
                         "epoch": epoch + 1, "dim": args.dim, "cal_qwk": best},
                        os.path.join(OUT_DIR, "best.pt"))
-            print(f"  new best cal QWK={best:.4f} -> v3/best.pt", flush=True)
+            print(f"  new best cal QWK={best:.4f} -> {os.path.join(OUT_DIR, 'best.pt')}", flush=True)
         json.dump(history, open(os.path.join(OUT_DIR, "history.json"), "w"), indent=2)
 
     print(f"Done. best cal QWK={best:.4f}")

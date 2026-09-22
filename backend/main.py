@@ -166,8 +166,11 @@ def get_grade_members():
                 logger.warning("grade ensemble member missing, skipping: %s", path)
                 continue
             m = load_trained_model(path, DEVICE)
-            members.append({**spec, "model": m, "cam": GradCAM(m),
-                            "transform": _eval_transform(spec["input_dim"])})
+            # Only the first member needs a GradCAM: it supplies the heatmap. Attaching
+            # hooks to the others would save activations on every forward for nothing,
+            # and their architectures need not even be CAM-friendly.
+            members.append({**spec, "model": m, "transform": _eval_transform(spec["input_dim"]),
+                            "cam": GradCAM(m) if not members else None})
         if not members:
             model, cam = get_model_and_cam()
             members = [{"model": model, "cam": cam, "temperature": cfg.TTA_REFERABLE_TEMPERATURE,

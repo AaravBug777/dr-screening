@@ -1,0 +1,46 @@
+{
+  "tag": "v3",
+  "temperature": 0.7,
+  "threshold": 0.4650000000000001,
+  "floor": 0.92,
+  "test": [
+    {
+      "source": "ddr",
+      "n": 2000,
+      "qwk": 0.916,
+      "acc": 0.899,
+      "mild": 0.538,
+      "sens": 0.934,
+      "spec": 0.961
+    },
+    {
+      "source": "fgadr",
+      "n": 461,
+      "qwk": 0.804,
+      "acc": 0.725,
+      "mild": 0.509,
+      "sens": 0.935,
+      "spec": 0.628
+    },
+    {
+      "source": "idrid",
+      "n": 516,
+      "qwk": 0.745,
+      "acc": 0.634,
+      "mild": 0.52,
+      "sens": 0.969,
+      "spec": 0.772
+    },
+    {
+      "source": "messidor2",
+      "n": 872,
+      "qwk": 0.842,
+      "acc": 0.764,
+      "mild": 0.345,
+      "sens": 0.829,
+      "spec": 0.955
+    }
+  ],
+  "worst_sens": 0.829,
+  "worst_spec": 0.628
+}

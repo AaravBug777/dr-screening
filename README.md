@@ -796,6 +796,58 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
   (grade and probabilities identical to v2's cached output, referable
   probability identical to the original model's to 4 decimals).
 
+- **v3, a full retrain on all six populations at higher resolution -- the
+  best grader on three of four test sets, but NOT deployed** (Phase 0-2 of
+  the retrain plan: `training/build_manifest.py`, `build_cache.py`,
+  `train_v3.py`, `eval_v3.py`, `calibrate_v3.py`). Rebuilt from ImageNet
+  rather than fine-tuned: 44k train images from 5 populations (the old model
+  saw ~33k from 2), 512px from a 1024px preprocessing cache (old: 380px from
+  a 640px cap -- a median IDRiD microaneurysm went from ~1.6px to ~2.2px,
+  which is what floors Mild), soft ordinal targets instead of plain
+  cross-entropy, a class-balanced sampler, and epoch selection on a
+  MULTI-population calibration split rather than the training populations.
+  14 epochs, ~9 h on the laptop 4060. Calibration set a sensitivity floor on
+  EVERY population at once (worst-case, not average) -- the rule whose
+  absence caused the two earlier deployment attempts to fail.
+
+  Training went well and had not plateaued: cal QWK 0.677 -> **0.909** over
+  14 epochs, still rising at the last one. On the frozen test suite
+  (old model at its deployed operating point vs. v3 at its calibrated one,
+  identical images):
+
+  | Test set | Model | QWK | Mild | Sens | Spec | AUC |
+  |---|---|---|---|---|---|---|
+  | DDR (2000) | old / v3 | 0.774 / **0.916** | 0.19 / **0.54** | 0.814 / **0.934** | 0.967 / 0.961 | 0.963 / **0.988** |
+  | FGADR (461) | old / v3 | 0.482 / **0.804** | 0.02 / **0.51** | 0.924 / 0.935 | 0.218 / **0.628** | 0.818 / **0.935** |
+  | Messidor-2 (872) | old / v3 | 0.811 / **0.842** | 0.14 / **0.35** | **0.899** / 0.829 | 0.873 / **0.955** | 0.962 / **0.970** |
+  | IDRiD (516) | old / v3 | **0.818** / 0.745 | **0.68** / 0.52 | 0.935 / **0.969** | **0.850** / 0.772 | **0.970** / 0.907 |
+
+  **Read the IDRiD row carefully -- it is the honest one.** IDRiD is the only
+  population NEITHER model ever trained on (v3 trained on DDR, FGADR and a
+  Messidor-2 quarter; the old model on APTOS/EyePACS only), so it is the one
+  like-for-like generalization test, and there v3 is WORSE: threshold-free
+  AUC 0.907 vs 0.970, QWK 0.745 vs 0.818. So a large part of v3's gains on
+  the other three sets is domain adaptation -- it learned those populations --
+  not a pure improvement in reading fundus images. That distinction matters
+  for a screening tool that will meet cameras and clinics none of these
+  datasets contain.
+
+  Two further reasons it is not deployed: (1) no single threshold meets the
+  brief's 90%/85% targets on all four test sets -- swept 0.25 to 0.55, FGADR
+  specificity peaks at 0.667 and IDRiD at 0.788, while Messidor-2 sensitivity
+  never reaches 0.90; (2) against the v2 grade model currently supplying the
+  displayed grade, v3 wins on DDR (QWK 0.916 vs 0.840) and Messidor-2 (0.842
+  vs 0.824), ties FGADR, but loses on IDRiD (0.745 vs 0.844) and on Mild
+  recall (0.51/0.54/0.52 vs 0.62/0.68/0.80 on FGADR/DDR/IDRiD). So it is not
+  a clean replacement for either deployed slot. Live app unchanged.
+
+  Clear next step, not taken: v3's cal QWK was still climbing at epoch 14, so
+  it is under-trained rather than converged -- more epochs is the cheapest
+  remaining lever. Ensembling v3 with v2 (Phase 3, cut for time) is the other.
+  Artifacts: `outputs/v3/best.pt` and per-epoch checkpoints (local,
+  uncommitted -- 43MB each); `outputs/manifest.csv` and the 17.8GB 1024px
+  cache under `training/data/` (gitignored) reproduce everything.
+
 
 ## Future work (deliberately deferred, not forgotten)
 

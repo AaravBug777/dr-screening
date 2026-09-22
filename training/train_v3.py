@@ -1,6 +1,6 @@
 """
 Full retrain from ImageNet weights on ALL six populations (see build_manifest.py),
-at 640px from the precomputed 1024px cache (build_cache.py).
+at 512px from the precomputed 1024px cache (build_cache.py).
 
 What is deliberately different from train.py, and why:
 
@@ -8,8 +8,10 @@ What is deliberately different from train.py, and why:
     cross-population threshold failure that blocked deploying the earlier
     fine-tunes is a symptom of a model that has only ever seen APTOS+EyePACS;
     score distributions cannot align on populations never trained on.
-  * RESOLUTION: 640 (train.py: 380), from a 1024px cache (live pipeline: 640).
-    Microaneurysms define the Mild grade and were ~1.6px at the old settings.
+  * RESOLUTION: 512 (train.py: 380), from a 1024px cache (live pipeline: 640).
+    Microaneurysms define the Mild grade and were ~1.6px at the old settings,
+    ~2.2px now. 640 was measured too (2.7px) but costs ~2x the time and would
+    only upsample DDR, which is natively 512.
   * LOSS: soft ORDINAL targets -- a little probability mass on the adjacent
     grades -- because the reported metric (QWK) penalises by squared distance
     while plain cross-entropy treats "No DR graded as PDR" and "No DR graded
@@ -21,10 +23,10 @@ What is deliberately different from train.py, and why:
     grade-3.
   * SELECTION: best epoch by mean QWK on the multi-population 'cal' split,
     NOT the APTOS/EyePACS 'val' split. 'test' is never read here.
-  * AMP + gradient accumulation, to fit 640px on 8GB.
+  * AMP + gradient accumulation + channels_last, to fit 512px on 8GB.
 
 Does not touch best_model.pt. Writes outputs/v3/epoch_N.pt and best.pt.
-Usage: python train_v3.py [--epochs 14] [--batch 8] [--accum 2] [--dim 640]
+Usage: python train_v3.py [--epochs 14] [--batch 12] [--accum 2] [--dim 512]
 """
 import argparse
 import json
@@ -102,6 +104,13 @@ def main():
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--smooth", type=float, default=0.12)
     ap.add_argument("--arch", default=config.MODEL_NAME)
+    ap.add_argument("--epoch-samples", type=int, default=22000,
+                    help="images drawn per epoch by the balanced sampler; a full pass is 44k but the "
+                         "sampler already down-weights the dominant grade-0 class, so shorter epochs "
+                         "give more frequent checkpoints/eval for the same samples seen")
+    ap.add_argument("--val-samples", type=int, default=2000,
+                    help="subsample of the APTOS/EyePACS val split used for per-epoch monitoring only "
+                         "(selection uses cal); the full 5.8k costs several minutes per epoch")
     ap.add_argument("--resume", default="")
     args = ap.parse_args()
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -115,6 +124,8 @@ def main():
     tr = man[man.split == "train"].reset_index(drop=True)
     cal = man[man.split == "cal"].reset_index(drop=True)
     val = man[man.split == "val"].reset_index(drop=True)
+    if 0 < args.val_samples < len(val):
+        val = val.sample(n=args.val_samples, random_state=config.SEED).reset_index(drop=True)
     assert (man.split == "test").any() and "test" not in {"train"}, "manifest missing test rows"
     print(f"train={len(tr)} cal={len(cal)} val={len(val)}  (test rows present but never read here)")
     print("train by source:", tr.source.value_counts().to_dict())
@@ -133,7 +144,8 @@ def main():
     counts = tr.label.value_counts().sort_index().values.astype(float)
     w = (1.0 / counts) ** 0.5          # sqrt inverse frequency: rebalances without flattening
     sample_w = w[tr.label.values]
-    sampler = WeightedRandomSampler(torch.as_tensor(sample_w, dtype=torch.double), len(tr), replacement=True)
+    n_per_epoch = min(args.epoch_samples, len(tr)) if args.epoch_samples > 0 else len(tr)
+    sampler = WeightedRandomSampler(torch.as_tensor(sample_w, dtype=torch.double), n_per_epoch, replacement=True)
     print("sampler class weights:", dict(zip(range(5), np.round(w / w.sum(), 4))))
 
     dl = lambda ds, **k: DataLoader(ds, batch_size=args.batch, num_workers=6, pin_memory=True,

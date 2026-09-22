@@ -108,7 +108,7 @@ TTA_REFERABLE_THRESHOLD = 0.27
 # use the same value or the model sees a different distribution than it
 # trained on -- build_cache.py and backend/main.py both read this.
 PREPROCESS_WORKING_DIM = 1024
-TRAIN_DIM = 640
+TRAIN_DIM = 512  # DDR is natively 512px, so training higher would only upsample it; ~34% more microaneurysm detail than the old 380 at half the compute of 640
 
 # --- Grade model (hybrid deployment) ---
 # The displayed 5-class grade, class probabilities and Grad-CAM heatmap come from a mixed-data

@@ -57,6 +57,7 @@ import config as cfg  # noqa: E402
 from dataset import ben_graham_preprocess, get_transforms  # noqa: E402
 from gradcam import GradCAM, load_trained_model, overlay_heatmap  # noqa: E402
 from tta import generate_tta, tta_probs  # noqa: E402
+from dataset import ben_graham_fast  # noqa: E402
 
 import matlab_bridge  # noqa: E402
 from matlab_bridge import analyze_with_matlab  # noqa: E402
@@ -128,27 +129,53 @@ def get_model_and_cam():
     return _model, _cam_tool
 
 
-GRADE_CHECKPOINT_PATH = os.path.join(TRAINING_DIR, "outputs", cfg.GRADE_CHECKPOINT_NAME)
-_grade_model = None
-_grade_cam_tool = None
+_grade_members = None
 
 
-def get_grade_model_and_cam():
-    """Model that supplies the displayed grade/probabilities/heatmap (config.GRADE_CHECKPOINT_NAME).
-    Falls back to the referral model if that file is absent, so the app never fails to grade."""
-    global _grade_model, _grade_cam_tool
-    if _grade_model is None:
-        if os.path.exists(GRADE_CHECKPOINT_PATH):
-            _grade_model = load_trained_model(GRADE_CHECKPOINT_PATH, DEVICE)
-            _grade_cam_tool = GradCAM(_grade_model)
-            _grade_temperature_holder["T"] = cfg.GRADE_TEMPERATURE
-        else:
-            _grade_model, _grade_cam_tool = get_model_and_cam()
-            _grade_temperature_holder["T"] = cfg.TTA_REFERABLE_TEMPERATURE
-    return _grade_model, _grade_cam_tool, _grade_temperature_holder["T"]
+def _eval_transform(dim):
+    """Resize/normalize at THIS member's input resolution. dataset.get_transforms is
+    hard-coded to cfg.IMG_SIZE (380), which would silently feed the 512px-trained
+    member the wrong scale."""
+    import albumentations as A
+    from albumentations.pytorch import ToTensorV2
+    return A.Compose([A.Resize(dim, dim),
+                      A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                      ToTensorV2()])
 
 
-_grade_temperature_holder = {"T": cfg.TTA_REFERABLE_TEMPERATURE}
+def _preprocess_for(img_rgb, spec):
+    """Each ensemble member sees the preprocessing IT was trained on. v2 predates the
+    retrain and uses the historical ben_graham_preprocess (640px working dim); v3 was
+    trained from the 1024px ben_graham_fast cache. Feeding either the other's pipeline
+    is a domain shift, so the spec carries both dimensions explicitly."""
+    if spec["preprocess_dim"] == 1024:
+        return ben_graham_fast(img_rgb, spec["preprocess_dim"])
+    return ben_graham_preprocess(img_rgb)
+
+
+def get_grade_members():
+    """Models whose TTA probabilities are averaged to produce the displayed grade
+    (cfg.GRADE_ENSEMBLE). Any member whose checkpoint is absent is skipped; if none
+    are present we fall back to the referral model, so the app always grades."""
+    global _grade_members
+    if _grade_members is None:
+        members = []
+        for spec in cfg.GRADE_ENSEMBLE:
+            path = os.path.join(TRAINING_DIR, "outputs", spec["checkpoint"])
+            if not os.path.exists(path):
+                logger.warning("grade ensemble member missing, skipping: %s", path)
+                continue
+            m = load_trained_model(path, DEVICE)
+            members.append({**spec, "model": m, "cam": GradCAM(m),
+                            "transform": _eval_transform(spec["input_dim"])})
+        if not members:
+            model, cam = get_model_and_cam()
+            members = [{"model": model, "cam": cam, "temperature": cfg.TTA_REFERABLE_TEMPERATURE,
+                        "preprocess_dim": 640, "input_dim": cfg.IMG_SIZE, "checkpoint": "best_model.pt",
+                        "transform": _eval_transform(cfg.IMG_SIZE)}]
+        logger.info("grade ensemble: %s", [m["checkpoint"] for m in members])
+        _grade_members = members
+    return _grade_members
 
 
 def encode_image_to_base64(rgb_array: np.ndarray) -> str:
@@ -312,16 +339,26 @@ async def predict(file: UploadFile = File(...), operator: dict = Depends(auth.re
     # that made this the live default. Costs ~6x a single view's inference
     # time; run_in_threadpool keeps that off the event loop the same way
     # the MATLAB call above is.
-    # Hybrid: the displayed grade, class probabilities and heatmap come from the grade model;
-    # the referable decision below always comes from the original (referral) model.
-    grade_model, grade_cam_tool, grade_temperature = get_grade_model_and_cam()
-    cam, pred_class, probs = await run_in_threadpool(
-        generate_tta, grade_cam_tool, tensor, grade_temperature
-    )
-    if grade_model is model:
-        referral_probs = probs
-    else:
-        referral_probs = await run_in_threadpool(tta_probs, model, tensor, cfg.TTA_REFERABLE_TEMPERATURE)
+    # Hybrid + ensemble: the displayed grade and probabilities are the AVERAGE of the
+    # grade-ensemble members' TTA probabilities; the Grad-CAM heatmap comes from the
+    # first member but explains the ENSEMBLE's chosen class. The referable decision
+    # below always comes from the original referral model, untouched.
+    members = get_grade_members()
+
+    def _grade():
+        per_member, tensors = [], []
+        for spec in members:
+            proc = _preprocess_for(img_rgb, spec)
+            t = spec["transform"](image=proc)["image"].unsqueeze(0).to(DEVICE)
+            tensors.append(t)
+            per_member.append(tta_probs(spec["model"], t, spec["temperature"]))
+        probs = np.mean(per_member, axis=0)
+        pred = int(np.argmax(probs))
+        cam, _, _ = generate_tta(members[0]["cam"], tensors[0], members[0]["temperature"], class_idx=pred)
+        return cam, pred, probs
+
+    cam, pred_class, probs = await run_in_threadpool(_grade)
+    referral_probs = await run_in_threadpool(tta_probs, model, tensor, cfg.TTA_REFERABLE_TEMPERATURE)
 
     display_img = cv2.resize(processed, (cfg.IMG_SIZE, cfg.IMG_SIZE))
     overlay = overlay_heatmap(display_img, cam)

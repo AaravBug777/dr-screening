@@ -51,11 +51,14 @@ def _build_views():
     ]
 
 
-def generate_tta(cam_tool, image_tensor, temperature=1.0):
+def generate_tta(cam_tool, image_tensor, temperature=1.0, class_idx=None):
     """
     cam_tool: a GradCAM instance (see gradcam.py) wrapping the trained model.
     image_tensor: preprocessed tensor, shape (1, 3, H, W), on the model's device.
     temperature: same calibration temperature GradCAM.generate() accepts.
+    class_idx: if given, explain THIS class instead of this model's own argmax.
+      Used when the displayed grade comes from an ensemble: the heatmap must
+      explain the class the app actually shows, not this one model's opinion.
 
     Returns: (cam, predicted_class, probs) -- same shape/contract as
     GradCAM.generate(), so this is a drop-in replacement at call sites.
@@ -72,7 +75,9 @@ def generate_tta(cam_tool, image_tensor, temperature=1.0):
             probs = F.softmax(logits / temperature, dim=1).cpu().numpy()[0]
             all_probs.append(probs)
     avg_probs = np.mean(all_probs, axis=0)
-    class_idx = int(np.argmax(avg_probs))
+    if class_idx is None:
+        class_idx = int(np.argmax(avg_probs))
+    class_idx = int(class_idx)
 
     # --- Pass 2: Grad-CAM per view for that SAME class, un-transformed
     # back to canonical orientation, averaged ---

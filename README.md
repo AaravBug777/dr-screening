@@ -848,6 +848,47 @@ Sources: [Gulshan et al. 2016, JAMA](https://research.google.com/pubs/archive/45
   uncommitted -- 43MB each); `outputs/manifest.csv` and the 17.8GB 1024px
   cache under `training/data/` (gitignored) reproduce everything.
 
+- **Deployed: the displayed grade is now an ENSEMBLE of v2 + v3.** v3 alone was
+  not a clean replacement for either slot, but averaging its TTA probabilities
+  with v2's is (`config.GRADE_ENSEMBLE`, `backend/main.py`). Blend weight 0.5
+  was chosen on the multi-population calibration split -- sweeping 0.0-1.0 there
+  picked 0.5 -- never on test. On the frozen test suite, v2 (previously
+  deployed) -> ensemble:
+
+  | Test set | QWK | Exact accuracy | Mild recall |
+  |---|---|---|---|
+  | DDR (2000) | 0.840 -> **0.917** | 0.725 -> **0.883** | 0.68 -> 0.66 |
+  | FGADR (461) | 0.798 -> **0.808** | 0.679 -> **0.725** | 0.62 -> 0.55 |
+  | Messidor-2 (872) | 0.824 -> **0.848** | 0.744 -> **0.767** | 0.17 -> **0.24** |
+  | IDRiD (516) | **0.845** -> 0.800 | 0.595 -> **0.641** | **0.80** -> 0.56 |
+  | mean | 0.827 -> **0.843** | 0.686 -> **0.754** | 0.57 -> 0.50 |
+
+  **Exact grade accuracy improves on every one of the four populations**
+  (+6.8 points on average) and QWK on three of four. Two honest costs: Mild
+  recall drops 57% -> 50% (concentrated on IDRiD, 0.80 -> 0.56), and IDRiD's
+  ordinal agreement drops even as its exact accuracy rises -- when it is wrong
+  there it is wrong by more. Shipping it anyway is defensible specifically
+  because **Mild is non-referable**: grade 1 and grade 0 both mean "do not
+  refer", so the safety-critical decision does not depend on telling them
+  apart, and that decision is still the ORIGINAL model's, unchanged at its
+  original threshold.
+
+  Mechanics: each member is fed the preprocessing it was trained on (v2:
+  ben_graham_preprocess at 640 -> 380px; v3: ben_graham_fast at 1024 -> 512px)
+  -- mixing them is a domain shift -- via a per-member transform, since
+  `dataset.get_transforms` is hard-coded to 380 and would have silently fed the
+  512px model the wrong scale. Grad-CAM comes from v2 but now explains the
+  ENSEMBLE's chosen class (`tta.generate_tta` gained a `class_idx` override),
+  so the heatmap matches the grade shown. A missing checkpoint is skipped with
+  a warning, and if none are present the app falls back to the referral model,
+  so grading never fails. Rollback: drop the v3 entry from
+  `config.GRADE_ENSEMBLE`. Verified end to end through the real `/predict`
+  endpoint on three FGADR test images -- probabilities within 0.002 of values
+  computed independently from cached logits, referable probability identical.
+  Cost: 18 forward passes per image instead of 12, plus a second preprocessing
+  pass (latency not yet measured on an idle GPU -- the verification ran while
+  v3 was still training).
+
 
 ## Future work (deliberately deferred, not forgotten)
 

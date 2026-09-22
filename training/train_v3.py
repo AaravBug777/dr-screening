@@ -184,7 +184,12 @@ def main():
         out["per_source_qwk"] = per
         return out
 
+    # When resuming, carry the previous best forward: starting at -1 would let the
+    # first resumed epoch overwrite best.pt with a WORSE model than we already have.
     history, best = [], -1.0
+    if args.resume:
+        best = float(torch.load(args.resume, map_location="cpu").get("cal_qwk", -1.0))
+        print(f"resumed run must beat cal QWK {best:.4f} to overwrite best.pt")
     for epoch in range(args.epochs):
         model.train()
         t0 = time.time()

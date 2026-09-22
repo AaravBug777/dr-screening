@@ -121,6 +121,23 @@ TRAIN_DIM = 512  # DDR is natively 512px, so training higher would only upsample
 GRADE_CHECKPOINT_NAME = "best_model_grade_v2.pt"
 GRADE_TEMPERATURE = 0.85
 
+# The displayed grade is the AVERAGE of these models' TTA probabilities. Each entry
+# carries its own preprocessing, because the two were trained on different pipelines
+# and each must be fed the images it was trained on:
+#   preprocess_dim -- Ben Graham working resolution (v2: the historical 640 via
+#     ben_graham_preprocess; v3: 1024 via ben_graham_fast, see PREPROCESS_WORKING_DIM)
+#   input_dim      -- what the network sees after resizing
+# Blend weight 0.5 was chosen on the multi-population calibration split, not on test.
+# Ensembling raised exact grade accuracy on ALL four held-out populations
+# (mean 68.6% -> 75.4%) and QWK on three of four; it costs Mild recall (57% -> 50%),
+# which is acceptable here only because Mild is non-referable, so the safety-critical
+# referral decision -- still the original model's, untouched -- does not depend on it.
+# Grad-CAM comes from the first entry, explaining the ENSEMBLE's chosen class.
+GRADE_ENSEMBLE = [
+    {"checkpoint": "best_model_grade_v2.pt", "temperature": 0.85, "preprocess_dim": 640, "input_dim": 380},
+    {"checkpoint": "v3/best.pt", "temperature": 0.70, "preprocess_dim": 1024, "input_dim": 512},
+]
+
 # Clinical recommendation shown in the app per class
 RECOMMENDATIONS = {
     0: "No signs of diabetic retinopathy detected. Continue annual screening.",

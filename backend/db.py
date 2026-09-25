@@ -22,12 +22,15 @@ from contextlib import contextmanager
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "netra.db")
 
+VALID_ROLES = ("OPERATOR", "OPHTHALMOLOGIST", "ADMIN")
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS operators (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     salt TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'OPERATOR',
     created_at REAL NOT NULL
 );
 
@@ -80,12 +83,16 @@ def _migrate(conn):
     if "review_duration_seconds" not in existing_cols:
         conn.execute("ALTER TABLE predictions ADD COLUMN review_duration_seconds REAL")
 
+    operator_cols = {row["name"] for row in conn.execute("PRAGMA table_info(operators)").fetchall()}
+    if "role" not in operator_cols:
+        conn.execute("ALTER TABLE operators ADD COLUMN role TEXT NOT NULL DEFAULT 'OPERATOR'")
 
-def create_operator(username: str, password_hash: str, salt: str) -> int:
+
+def create_operator(username: str, password_hash: str, salt: str, role: str = "OPERATOR") -> int:
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO operators (username, password_hash, salt, created_at) VALUES (?, ?, ?, ?)",
-            (username, password_hash, salt, time.time()),
+            "INSERT INTO operators (username, password_hash, salt, role, created_at) VALUES (?, ?, ?, ?, ?)",
+            (username, password_hash, salt, role, time.time()),
         )
         return cur.lastrowid
 

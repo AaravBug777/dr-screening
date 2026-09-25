@@ -1,0 +1,163 @@
+@import "tailwindcss";
+
+/* Ported from frontend/tailwind.config.js + frontend/src/index.css (the
+   original React app's design system) -- same "scope" palette and type
+   scale, so both frontends share one visual identity instead of the
+   default Tailwind slate/blue/cyan this app started with.
+   frontend's fontFamily.display/body/mono become --font-display/
+   --font-sans/--font-mono here; frontend's `colors.scope.*` become
+   --color-scope-* (Tailwind v4 auto-generates bg-scope-, text-scope-,
+   and border-scope- utilities from any --color-* token). */
+@theme {
+  --font-display: 'Fraunces', serif;
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --color-scope-bg: #0F1B2D;        /* deep clinical navy -- hero/header */
+  --color-scope-bglight: #F7F4EE;   /* parchment -- content area */
+  --color-scope-accent: #E85D3D;    /* fundus coral-red -- primary actions/alerts */
+  --color-scope-accentsoft: #F3A98C;
+  --color-scope-accentbg: #FFF6F2;  /* diagnostic light orange tint -- urgent-card/disclaimer containers */
+  --color-scope-trust: #6F9285;     /* muted sage -- calm secondary, "safe" states */
+  --color-scope-text: #1C2430;
+  --color-scope-textinverse: #F7F4EE;
+  --color-scope-line: #D8D2C4;
+
+  /* Clinical Scope Theme applied by remapping the Tailwind utility
+     classes every component already uses (bg-slate-900, text-blue-600,
+     bg-emerald-100, ...) rather than rewriting ~30 files' classNames.
+     slate = navy/charcoal neutral; blue = terracotta accent; cyan +
+     emerald = one sage/trust ramp (matches the spec's own grouping);
+     amber = ochre/gold caution; rose = deep clinical red, kept more
+     intense than the accent so sage/teal/ochre/red still reads as an
+     unambiguous safe-to-danger order; sky = teal (MILD_NPDR's step
+     between sage and ochre); indigo = steel-blue. */
+
+  --color-slate-50: #F7F4EE;
+  --color-slate-100: #EFEAE0;
+  --color-slate-200: #D8D2C4;
+  --color-slate-300: #C0B9A8;
+  --color-slate-400: #918C7E;
+  --color-slate-500: #6E6D6C;
+  --color-slate-600: #4C5568;
+  --color-slate-700: #333F52;
+  --color-slate-800: #1C2A3D;
+  --color-slate-900: #0F1B2D;
+  --color-slate-950: #091120;
+
+  --color-blue-50: #FFF6F2;
+  --color-blue-100: #FDE6DC;
+  --color-blue-200: #FBCCB8;
+  --color-blue-300: #F3A98C;
+  --color-blue-400: #ED8564;
+  --color-blue-500: #E85D3D;
+  --color-blue-600: #E85D3D;
+  --color-blue-700: #C1492F;
+  --color-blue-800: #9A3A25;
+  --color-blue-900: #742B1C;
+  --color-blue-950: #3D160E;
+
+  --color-cyan-50: #F1F4F1;
+  --color-cyan-100: #E1E9E2;
+  --color-cyan-200: #C7D5C9;
+  --color-cyan-300: #A9BFAC;
+  --color-cyan-400: #8BA88E;
+  --color-cyan-500: #6F9285;
+  --color-cyan-600: #5C7D71;
+  --color-cyan-700: #4A685D;
+  --color-cyan-800: #3A534A;
+  --color-cyan-900: #2B3F38;
+  --color-cyan-950: #1A2622;
+
+  --color-emerald-50: #F1F4F1;
+  --color-emerald-100: #E1E9E2;
+  --color-emerald-200: #C7D5C9;
+  --color-emerald-300: #A9BFAC;
+  --color-emerald-400: #8BA88E;
+  --color-emerald-500: #6F9285;
+  --color-emerald-600: #5C7D71;
+  --color-emerald-700: #4A685D;
+  --color-emerald-800: #3A534A;
+  --color-emerald-900: #2B3F38;
+  --color-emerald-950: #1A2622;
+
+  --color-amber-50: #FFF8EE;
+  --color-amber-100: #FCECD2;
+  --color-amber-200: #F8D9A6;
+  --color-amber-300: #F0BC71;
+  --color-amber-400: #E39F49;
+  --color-amber-500: #D4862F;
+  --color-amber-600: #C17A2E;
+  --color-amber-700: #9C5F23;
+  --color-amber-800: #784A1D;
+  --color-amber-900: #543416;
+  --color-amber-950: #301D0B;
+
+  --color-rose-50: #FDF0EE;
+  --color-rose-100: #FADAD5;
+  --color-rose-200: #F3B3A9;
+  --color-rose-300: #E9897A;
+  --color-rose-400: #D8604C;
+  --color-rose-500: #C64530;
+  --color-rose-600: #B23A26;
+  --color-rose-700: #8F2E1E;
+  --color-rose-800: #6E2317;
+  --color-rose-900: #4E1810;
+  --color-rose-950: #2E0D08;
+
+  --color-indigo-50: #EEF2F6;
+  --color-indigo-200: #C3D1DE;
+  --color-indigo-600: #3D5A80;
+  --color-indigo-700: #31485F;
+  --color-indigo-800: #263A4C;
+  --color-indigo-900: #1B2A38;
+
+  --color-sky-100: #DCEEEA;
+  --color-sky-500: #4E8C82;
+  --color-sky-900: #1F3B36;
+
+  /* A touch crisper than slate-50/bglight so cards (bg-white) still read
+     as a distinct surface from the page background and hover tints,
+     while staying in the same warm-parchment family (not stark #FFFFFF). */
+  --color-white: #FBFAF6;
+}
+
+@layer base {
+  body {
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1C2430;
+    background-color: #F7F4EE;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  /* Brand & Headlines: application titles, major headings, section
+     banners, clinical dashboard metric values -- per the Clinical Scope
+     Theme's type scale, every semantic heading gets the display serif,
+     app-wide, with no per-component opt-in needed. */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+  }
+
+  *:focus-visible {
+    outline: 2px solid #E85D3D;
+    outline-offset: 2px;
+  }
+}
+
+/* Custom Typography & Micro-Badge utilities for Bold Typography theme */
+.tracking-tightest {
+  letter-spacing: -0.05em;
+}
+
+.eyebrow-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #94a3b8;
+}

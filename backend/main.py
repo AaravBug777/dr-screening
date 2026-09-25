@@ -241,7 +241,7 @@ def login(response: FastAPIResponse, username: str = Body(...), password: str = 
         max_age=auth.SESSION_TTL_SECONDS, path="/",
     )
     logger.info("Operator '%s' logged in.", username)
-    return {"username": operator["username"], "id": operator["id"]}
+    return {"username": operator["username"], "id": operator["id"], "role": operator["role"]}
 
 
 @app.post("/auth/logout")

@@ -132,7 +132,7 @@ def bootstrap_default_operator():
     if generated:
         password = secrets.token_urlsafe(12)
     password_hash, salt = hash_password(password)
-    db.create_operator(username, password_hash, salt)
+    db.create_operator(username, password_hash, salt, role="ADMIN")
     if generated:
         print("=" * 70)
         print(f"[auth] Created default operator account -- SAVE THIS PASSWORD, it is not stored anywhere else:")

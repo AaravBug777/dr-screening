@@ -9,13 +9,22 @@ in-app self-registration flow, and no "any operator can create another"
 question to answer, either.
 
 Usage:
-    python manage_operators.py add <username> [password]
+    python manage_operators.py add <username> [password] [role]
         Creates an operator. If password is omitted, one is generated and
         printed once (same convention as auth.bootstrap_default_operator).
+        role is one of OPERATOR (default), OPHTHALMOLOGIST, ADMIN -- it's
+        what /auth/login returns, so it's what decides which app view a
+        login lands the user in (see new-frontend/src/App.tsx). To let the
+        same person work as both a screening operator and a reviewing
+        ophthalmologist, create two separate accounts, one per role -- an
+        account has exactly one role, on purpose, since the role IS the
+        login now, not a switch available after signing in.
     python manage_operators.py list
-        Lists existing operators (username + created_at), never password hashes.
+        Lists existing operators (username, role, created_at), never password hashes.
     python manage_operators.py passwd <username> <new_password>
         Resets an existing operator's password.
+    python manage_operators.py setrole <username> <role>
+        Changes an existing operator's role (OPERATOR / OPHTHALMOLOGIST / ADMIN).
     python manage_operators.py remove <username>
         Deletes an operator account. Their past predictions in history
         stay (operator_id becomes an orphaned reference, same as deleting
@@ -32,7 +41,7 @@ import db
 
 def cmd_add(args):
     if not args:
-        print("Usage: python manage_operators.py add <username> [password]")
+        print("Usage: python manage_operators.py add <username> [password] [role]")
         sys.exit(1)
     username = args[0]
     if db.get_operator_by_username(username) is not None:
@@ -44,24 +53,46 @@ def cmd_add(args):
     if generated:
         password = secrets.token_urlsafe(12)
 
-    password_hash, salt = auth.hash_password(password)
-    operator_id = db.create_operator(username, password_hash, salt)
+    role = args[2].upper() if len(args) > 2 else "OPERATOR"
+    if role not in db.VALID_ROLES:
+        print(f"Invalid role '{role}'. Must be one of: {', '.join(db.VALID_ROLES)}")
+        sys.exit(1)
 
-    print(f"Created operator '{username}' (id={operator_id}).")
+    password_hash, salt = auth.hash_password(password)
+    operator_id = db.create_operator(username, password_hash, salt, role=role)
+
+    print(f"Created operator '{username}' (id={operator_id}, role={role}).")
     if generated:
         print(f"Generated password (save this now, it is not stored anywhere else): {password}")
 
 
 def cmd_list(args):
     with db.get_conn() as conn:
-        rows = conn.execute("SELECT id, username, created_at FROM operators ORDER BY id").fetchall()
+        rows = conn.execute("SELECT id, username, role, created_at FROM operators ORDER BY id").fetchall()
     if not rows:
         print("No operators yet -- start the backend once to auto-create the default account, or use 'add'.")
         return
-    print(f"{'id':>4}  {'username':<20}  created_at")
+    print(f"{'id':>4}  {'username':<20}  {'role':<15}  created_at")
     for r in rows:
         created = time.strftime("%Y-%m-%d %H:%M", time.localtime(r["created_at"]))
-        print(f"{r['id']:>4}  {r['username']:<20}  {created}")
+        print(f"{r['id']:>4}  {r['username']:<20}  {r['role']:<15}  {created}")
+
+
+def cmd_setrole(args):
+    if len(args) < 2:
+        print("Usage: python manage_operators.py setrole <username> <role>")
+        sys.exit(1)
+    username, role = args[0], args[1].upper()
+    if role not in db.VALID_ROLES:
+        print(f"Invalid role '{role}'. Must be one of: {', '.join(db.VALID_ROLES)}")
+        sys.exit(1)
+    operator = db.get_operator_by_username(username)
+    if operator is None:
+        print(f"No such operator: '{username}'")
+        sys.exit(1)
+    with db.get_conn() as conn:
+        conn.execute("UPDATE operators SET role = ? WHERE id = ?", (role, operator["id"]))
+    print(f"Role updated for '{username}': {role}")
 
 
 def cmd_passwd(args):
@@ -96,7 +127,7 @@ def cmd_remove(args):
     print(f"Removed operator '{username}'. Their past predictions in history are kept, not deleted.")
 
 
-COMMANDS = {"add": cmd_add, "list": cmd_list, "passwd": cmd_passwd, "remove": cmd_remove}
+COMMANDS = {"add": cmd_add, "list": cmd_list, "passwd": cmd_passwd, "setrole": cmd_setrole, "remove": cmd_remove}
 
 if __name__ == "__main__":
     db.init_db()

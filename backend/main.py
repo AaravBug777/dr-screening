@@ -31,6 +31,7 @@ import base64
 import csv
 import io
 import logging
+import math
 import os
 import sys
 import tempfile
@@ -547,6 +548,64 @@ def stats(operator: dict = Depends(auth.require_operator)):
     simulation call would be a new, unnecessary way to hit that)."""
     real = db.compute_stats()
     return {"real": real, "simulink_assumptions": SIMULINK_ASSUMPTIONS}
+
+
+@app.get("/capacity-live")
+def capacity_live(refresh: bool = False, operator: dict = Depends(auth.require_operator)):
+    """new-frontend's CapacityPanel calls this (services/backendApi.ts's
+    fetchCapacityLive) -- it didn't exist until now, a real gap found while
+    auditing that frontend against this backend. Deliberately does NOT
+    re-run the Simulink model live for the same reason /stats doesn't (see
+    that docstring): MATLAB/Simulink concurrency is fragile, and a
+    per-request simulation call would be a new way to hit it. Instead this
+    rescales throughputParams.m's own sustainable-capacity figure by the
+    ratio of the REAL measured operator review time
+    (db.compute_stats()'s review_time.median_seconds, from
+    /history/{id}/review-complete) to the assumed review_time_seconds that
+    figure was originally computed at -- capacity is inversely
+    proportional to review time in that same model, so this is a real
+    rescaling of a real number, not a fabricated one. `refresh` is
+    accepted for API compatibility with the frontend's cache-busting call
+    but has no effect: this is already computed fresh every request (cheap
+    -- one aggregate query, no Simulink call).
+    """
+    real = db.compute_stats()
+    review_time = real["review_time"]
+    live = review_time["n"] > 0
+    assumed_seconds = SIMULINK_ASSUMPTIONS["review_time_seconds"]
+    effective_seconds = review_time["median_seconds"] if live else assumed_seconds
+
+    sustainable = SIMULINK_ASSUMPTIONS["sustainable_annual_capacity"] * (assumed_seconds / effective_seconds)
+    target = SIMULINK_ASSUMPTIONS["target_annual_capacity"]
+    currently_stable = sustainable >= target
+    backlog_growth_per_day = 0.0 if currently_stable else (target - sustainable) / 365.0
+
+    reviewers_by_volume = [
+        {"volume": v, "reviewers_needed": max(1, math.ceil(v / sustainable * SIMULINK_ASSUMPTIONS["num_reviewers"]))}
+        for v in (target, target * 2, target * 5, target * 10)
+    ]
+
+    return {
+        "live": live,
+        "sustainable_annual_capacity": round(sustainable),
+        # The Simulink model's established finding (matlab/simulink/
+        # throughputParams.m): at brief-scale volumes, compute/bandwidth are
+        # over-provisioned >100x and human review is the binding constraint --
+        # not re-derived per request, since nothing in this app's real usage
+        # data currently exercises the compute/bandwidth stages to check.
+        "bottleneck_stage": "human_review",
+        "target_annual_volume": target,
+        "currently_stable": currently_stable,
+        "review_backlog_growth_per_day": round(backlog_growth_per_day, 1),
+        "reviewers_by_volume": reviewers_by_volume,
+        "source": (
+            f"matlab/simulink/throughputParams.m, rescaled by real measured review time "
+            f"(n={review_time['n']}, median={review_time['median_seconds']}s)"
+            if live else
+            f"matlab/simulink/throughputParams.m assumption (review_time_seconds={assumed_seconds}) -- "
+            f"not yet 'live': no review-complete timings recorded yet"
+        ),
+    }
 
 
 @app.get("/history/{prediction_id}")

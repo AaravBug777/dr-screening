@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { UserSession, ScreeningRecord } from './types';
 import { loadScreeningRecords, saveScreeningRecord, saveAllRecords, hydrateFromIndexedDBIfEmpty } from './services/storage';
-import { fetchMe, BackendOperator } from './services/backendApi';
+import { fetchMe, fetchHistoryList, BackendOperator } from './services/backendApi';
+import { mapBackendHistoryRowToRecord } from './services/backendMapping';
 import { setSimulatedOffline } from './services/connectivity';
 import { flushSyncQueue } from './services/fieldSync';
 import * as idb from './services/indexedDBStorage';
@@ -166,12 +167,45 @@ export default function App() {
     setSimulatedOffline(value);
   };
 
+  // Merges the real backend history (GET /history -- the actual
+  // netra.db `predictions` table, persisted regardless of which frontend
+  // or device made the screening) on top of this browser's own local
+  // record cache. Fixes a real gap: every prediction was already being
+  // saved server-side, but this app's History/Patient/Analytics views
+  // previously only ever read the local cache, so a real screening never
+  // appeared anywhere but the device that made it. Backend rows get a
+  // `BACKEND-<id>` id (see backendMapping.ts), a different namespace than
+  // local records' `NETRA-...` ids, so this never overwrites a local
+  // record -- but it DOES mean a screening just finished in this same
+  // session can briefly appear twice (once as the local record
+  // handleFinishScreening already saved, once as its own now-persisted
+  // backend row) until they'd otherwise be told apart; not attempted here,
+  // since the backend list row doesn't return enough to correlate the two
+  // reliably (see mapBackendHistoryRowToRecord's docstring). Backend fetch
+  // failing (offline, backend down) is swallowed -- local records still
+  // load and the app stays usable offline, which is this app's whole
+  // design point.
+  const mergeWithBackendHistory = async (localRecords: ScreeningRecord[]): Promise<ScreeningRecord[]> => {
+    try {
+      const { results } = await fetchHistoryList({ limit: 200 });
+      const backendRecords = results.map(mapBackendHistoryRowToRecord);
+      return [...localRecords, ...backendRecords].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    } catch {
+      return localRecords;
+    }
+  };
+
   // Load records on mount -- IndexedDB is checked first as the resilient
-  // fallback (in case localStorage was ever cleared), then the sync
-  // queue count is loaded for the header badge.
+  // fallback (in case localStorage was ever cleared), then real backend
+  // history is merged in, then the sync queue count is loaded for the
+  // header badge.
   useEffect(() => {
-    hydrateFromIndexedDBIfEmpty().then(() => {
-      setRecords(loadScreeningRecords());
+    hydrateFromIndexedDBIfEmpty().then(async () => {
+      const local = loadScreeningRecords();
+      setRecords(local);
+      setRecords(await mergeWithBackendHistory(local));
     });
     refreshQueuedCount();
   }, []);
@@ -193,7 +227,8 @@ export default function App() {
 
   const handleReloadRecords = () => {
     const loaded = loadScreeningRecords();
-    setRecords(loaded);
+    setRecords(loaded); // immediate, synchronous -- local data first for responsiveness
+    mergeWithBackendHistory(loaded).then(setRecords); // then layer in real backend history
     refreshQueuedCount();
   };
 
@@ -211,6 +246,7 @@ export default function App() {
   const handleFinishScreening = (newRecord: ScreeningRecord) => {
     const updated = loadScreeningRecords();
     setRecords(updated);
+    mergeWithBackendHistory(updated).then(setRecords);
     refreshQueuedCount();
   };
 

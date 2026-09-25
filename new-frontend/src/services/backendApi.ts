@@ -152,3 +152,73 @@ export async function fetchCapacityLive(refresh = false): Promise<CapacitySnapsh
   if (!res.ok) throw new Error(await parseErrorDetail(res));
   return res.json();
 }
+
+// --- Real screening history (backend/main.py's /history*) -- the actual
+// persistent audit trail (backend/db.py's `predictions` table, one row per
+// /predict call regardless of which frontend made it), distinct from this
+// app's own local IndexedDB/localStorage record cache (services/storage.ts).
+// Added because that local cache was the ONLY thing populating the History/
+// Patient views -- a real screening never showed up anywhere but the device
+// that made it, even though the backend had already persisted it. See
+// backendMapping.ts's mapBackendHistoryRowToRecord for how a row here
+// becomes a ScreeningRecord for display. ---
+
+export interface BackendHistoryRow {
+  id: number;
+  operator_id: number | null;
+  created_at: number; // unix seconds
+  source_filename: string | null;
+  gradable: 0 | 1;
+  quality_verdict: string | null;
+  predicted_label: string | null;
+  predicted_class: number | null;
+  referable: 0 | 1 | null;
+  referable_probability: number | null;
+}
+
+export interface BackendHistoryDetail extends BackendHistoryRow {
+  response: BackendPredictResponse;
+}
+
+export async function fetchHistoryList(params: {
+  limit?: number;
+  offset?: number;
+  mineOnly?: boolean;
+} = {}): Promise<{ total: number; limit: number; offset: number; results: BackendHistoryRow[] }> {
+  const q = new URLSearchParams();
+  if (params.limit != null) q.set('limit', String(params.limit));
+  if (params.offset != null) q.set('offset', String(params.offset));
+  if (params.mineOnly) q.set('mine_only', 'true');
+  const res = await fetchWithRetry(`${API_BASE}/history?${q.toString()}`);
+  if (!res.ok) throw new Error(await parseErrorDetail(res));
+  return res.json();
+}
+
+export async function fetchHistoryDetail(predictionId: number): Promise<BackendHistoryDetail> {
+  const res = await fetchWithRetry(`${API_BASE}/history/${predictionId}`);
+  if (!res.ok) throw new Error(await parseErrorDetail(res));
+  return res.json();
+}
+
+// Real elapsed review time (backend/db.py's review_duration_seconds), the
+// measured counterpart to the Simulink model's assumed 30s -- see
+// /capacity-live, which rescales its capacity figure by this once any
+// timings exist. Fire-and-forget from the caller's point of view is
+// reasonable (a failed post loses a timing sample, not clinical data), but
+// this function itself still surfaces the error so a caller CAN log it.
+export async function postReviewComplete(predictionId: number, durationSeconds: number): Promise<void> {
+  const res = await fetchWithRetry(
+    `${API_BASE}/history/${predictionId}/review-complete`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ duration_seconds: durationSeconds }),
+    },
+    { retries: 1 }
+  );
+  if (!res.ok) throw new Error(await parseErrorDetail(res));
+}
+
+export function historyExportCsvUrl(): string {
+  return `${API_BASE}/history/export.csv`;
+}

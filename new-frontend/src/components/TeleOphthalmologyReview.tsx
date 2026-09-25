@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScreeningRecord, DRStage, ReferralPriority } from '../types';
 import { FundusCanvasViewer } from './NewScreening/FundusCanvasViewer';
 import {
@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { updateScreeningRecord } from '../services/storage';
 import { generateClinicalPDFReport } from '../services/reportGenerator';
+import { postReviewComplete } from '../services/backendApi';
+import { backendPredictionIdFromRecordId } from '../services/backendMapping';
 
 interface TeleOphthalmologyReviewProps {
   records: ScreeningRecord[];
@@ -47,6 +49,16 @@ export function TeleOphthalmologyReview({
   const [overridePriority, setOverridePriority] = useState<ReferralPriority>(currentRecord?.referral.priority || 'HIGH');
   const [signedSuccess, setSignedSuccess] = useState<boolean>(false);
 
+  // Real elapsed review time -- backend/db.py's review_duration_seconds,
+  // the measured counterpart to the Simulink model's assumed 30s (see
+  // /capacity-live). Reset whenever the reviewer switches to a different
+  // case, so switching cases mid-review doesn't inflate the next case's
+  // timing with time spent on the previous one.
+  const reviewStartedAtRef = useRef<number>(Date.now());
+  useEffect(() => {
+    reviewStartedAtRef.current = Date.now();
+  }, [selectedRecordId]);
+
   if (!currentRecord) {
     return (
       <div className="bg-white p-12 rounded-xl border border-slate-200 text-center text-slate-500">
@@ -68,6 +80,20 @@ export function TeleOphthalmologyReview({
       status: 'REVIEWED'
     };
     updateScreeningRecord(updated);
+
+    // Post the real elapsed review time to the backend -- only possible
+    // for a record actually sourced from server history (see
+    // backendMapping.ts): a purely local/demo record has no backend
+    // prediction id to attach a timing to. Fire-and-forget: a lost
+    // network call here should never block signing off a clinical review.
+    const predictionId = backendPredictionIdFromRecordId(currentRecord.id);
+    if (predictionId != null) {
+      const durationSeconds = (Date.now() - reviewStartedAtRef.current) / 1000;
+      postReviewComplete(predictionId, durationSeconds).catch((err) => {
+        console.warn('Failed to record review duration:', err);
+      });
+    }
+
     onRecordUpdated();
     setSignedSuccess(true);
     setTimeout(() => setSignedSuccess(false), 3000);

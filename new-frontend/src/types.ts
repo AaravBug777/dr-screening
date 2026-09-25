@@ -177,6 +177,10 @@ export interface BackendSegmentationSummary {
   fovea_found: boolean;
   microaneurysm_candidates: number;
   exudate_candidates: number;
+  // Cotton wool spots (soft exudates) -- kept in its own namespace by the
+  // backend since it's a newer detector without the same validation
+  // confidence as the others yet (matlab/segmentation/README.md).
+  soft_exudate_candidates: number;
   hemorrhage_candidates: number;
   hemorrhage_dot_blot_candidates: number;
   hemorrhage_flame_candidates: number;

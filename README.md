@@ -306,6 +306,69 @@ severity grade, confidence bars, a clinical recommendation, and a toggle
 between the original image, the Grad-CAM heatmap, and the MATLAB structures
 overlay.
 
+## 4b. `new-frontend/` - a second, in-progress UI
+
+A separate, much larger TypeScript/React rebuild of the screening UI,
+alongside (not replacing) `frontend/` above - role-scoped logins (Screening
+Operator / Ophthalmologist / Administrator), an offline-first field cache
+(IndexedDB drafts + a sync queue for no-connectivity field use), a
+longitudinal retinal-progression comparison view, a single-patient history
+view, an 8-Indian-language patient takeaway handout, and its own design
+system pass. Talks to the exact same backend as `frontend/` - no separate
+API, no separate database.
+
+```bash
+cd new-frontend
+npm install
+npm run dev
+```
+Visit http://localhost:3000 (a different port from `frontend/`'s 5173, so
+both can run at once) - same login as step 3/4. `vite.config.ts` proxies
+`/api/*` to the backend on :8000, same pattern as `frontend/vite.config.js`.
+
+**Audited against the real backend after landing, three real gaps found
+and fixed, not just reported:**
+- **History/Patient views were reading local browser storage only, never
+  the real backend database** - every prediction was already being saved
+  server-side (`db.save_prediction`, inside `/predict`, regardless of
+  which frontend calls it), but this frontend's History/Patient/Analytics
+  views only ever read a separate local IndexedDB/localStorage cache, so a
+  real screening never showed up anywhere but the device that made it.
+  Fixed: `services/backendApi.ts` gained real `GET /history` /
+  `GET /history/{id}` calls, and `App.tsx` now merges real backend history
+  on top of the local cache on load/reload (`services/backendMapping.ts`'s
+  `mapBackendHistoryRowToRecord`, with honest placeholders for fields the
+  list endpoint doesn't carry - patient identity, per-class confidence,
+  segmentation counts - rather than fabricated ones). Known, disclosed
+  limitation: a screening just finished in the same session can briefly
+  appear twice (once as the local record, once as its own now-persisted
+  backend row) since the two have no shared id to correlate by from the
+  list endpoint alone.
+- **The doctor review-time instrumentation (`/history/{id}/review-complete`,
+  the real measured counterpart to the Simulink model's assumed 30s) was
+  never called.** Fixed: `TeleOphthalmologyReview.tsx` now times real
+  elapsed review wall-clock time and posts it on sign-off, for any record
+  sourced from real backend history.
+- **`soft_exudate_candidates` (cotton wool spots) was silently dropped** -
+  the backend has returned it in `segmentation_summary` since
+  `detectSoftExudates.m` shipped, but this frontend's type/mapping
+  hardcoded it to 0. Fixed in `types.ts` / `screeningApi.ts`.
+
+Also found: `CapacityPanel.tsx` called a `GET /capacity-live` backend
+endpoint that didn't exist yet. Built (`backend/main.py`) rather than
+removing the call - it rescales `throughputParams.m`'s sustainable-capacity
+figure by the real measured review time once `/history/{id}/review-complete`
+timings exist, the same "real number, not re-simulated live" discipline
+`/stats` already uses.
+
+Not fixed, disclosed instead: `RecordDetailModal.tsx` renders a
+procedurally-generated canvas visualization (`FundusCanvasViewer`, seeded
+from the image data) rather than the real
+`gradcam_overlay_base64`/`structures_overlay_base64` images the backend
+actually computed - true even for a record made through this frontend's
+own live pipeline. A real UI-architecture gap, bigger than the ones above;
+noted here rather than patched over.
+
 ## 5. App hardening (local prototype-grade)
 
 Beyond the core screening flow, the app now has:
@@ -349,8 +412,16 @@ Beyond the core screening flow, the app now has:
 - **Operator management** (`backend/manage_operators.py`) - a CLI, not a
   web endpoint (deliberately: account creation isn't exposed through the
   app itself at this trust level - see the script's own docstring):
-  `python manage_operators.py add <username> [password]` /
-  `list` / `passwd` / `remove`.
+  `python manage_operators.py add <username> [password] [role]` /
+  `list` / `passwd` / `setrole` / `remove`. Operators carry a role -
+  `OPERATOR` (default), `OPHTHALMOLOGIST`, or `ADMIN` - returned from
+  `/auth/login` and `/auth/me`; `new-frontend/` uses it to pick which app
+  view a login lands in (`new-frontend/src/App.tsx`). `frontend/` doesn't
+  read the role at all, so it's invisible there. An account has exactly
+  one role - to let the same person work as both a screening operator and
+  a reviewing ophthalmologist, create two separate accounts. Existing
+  accounts from before roles existed default to `OPERATOR` via an additive
+  migration (`backend/db.py`); use `setrole` to promote one.
 - **A visible "Enhanced" view** - MATLAB's quality-gate enhancement
   (illumination normalization → CLAHE → bilateral denoise,
   `matlab/quality/enhanceFundusImage.m`) was already being computed and

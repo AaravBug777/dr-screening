@@ -86,7 +86,11 @@ export function mapToLegacyRecord(
         microaneurysms: seg?.microaneurysm_candidates ?? 0,
         hemorrhages: seg?.hemorrhage_candidates ?? 0,
         hardExudates: seg?.exudate_candidates ?? 0,
-        cottonWoolSpots: 0, // not produced by this backend's segmentation summary
+        // Soft exudates (cotton wool spots): the backend HAS produced this
+        // since detectSoftExudates.m shipped (matlab/segmentation/README.md),
+        // it just wasn't in this frontend's type/mapping yet -- was silently
+        // dropped here even though segmentation_summary always includes it.
+        cottonWoolSpots: seg?.soft_exudate_candidates ?? 0,
         neovascularization: seg?.nv_candidates ?? 0
       },
       // No real per-lesion pixel coordinates are returned by the backend
